@@ -30,8 +30,8 @@ export function useEventStream() {
         setEvents(sorted as any);
         setLastLedger(latestLedger);
       }
-    } catch (e) {
-      console.error('Event stream error:', e);
+    } catch (e: any) {
+      console.warn('Event stream error:', e?.message || e);
     }
   }, []);
 

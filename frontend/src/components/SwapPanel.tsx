@@ -70,7 +70,7 @@ export default function SwapPanel() {
       setAmountIn('');
       setQuote(0);
     } catch (err: any) {
-      console.error('Swap failed:', err);
+      console.warn('Swap failed:', err?.message || err);
     }
   };
 

@@ -110,8 +110,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setLpBalance(lp);
       setPoolReserves(reserves);
       setLedger(lat.sequence);
-    } catch (e) {
-      console.error('Balance refresh error:', e);
+    } catch (e: any) {
+      console.warn('Balance refresh error:', e?.message || e);
     }
   }, [publicKey]);
 
@@ -133,8 +133,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setConnected(true);
       const net = await getWalletNetwork();
       setNetwork(net);
-    } catch (err) {
-      console.error('Freighter connect error:', err);
+    } catch (err: any) {
+      console.warn('Freighter connect error:', err?.message || err);
       throw err;
     } finally {
       setIsConnecting(false);

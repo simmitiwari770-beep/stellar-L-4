@@ -103,7 +103,7 @@ async function callContractView(
 
   const result = await server.simulateTransaction(tx);
   if (SorobanRpc.Api.isSimulationError(result)) {
-    console.error(`View call [${method}] failed for ${contractId}:`, result.error);
+    console.warn(`View call [${method}] failed for ${contractId}:`, result.error);
     throw new Error(`View call failed: ${result.error}`);
   }
   if (!result.result) throw new Error('No result from simulation');
@@ -277,8 +277,8 @@ export async function getRecentEvents(contractIds: string[], limit = 50) {
       .filter((evt): evt is any => evt !== null);
 
     return { events, latestLedger: ledger.sequence };
-  } catch (err) {
-    console.error('Final Event Fetch error:', err);
+  } catch (err: any) {
+    console.warn('Final Event Fetch error:', err?.message || err);
     return { events: [], latestLedger: 0 };
   }
 }
