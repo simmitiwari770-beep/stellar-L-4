@@ -1,12 +1,12 @@
 {
-  "name": "steller-lever-4-root",
+  "name": "soroswap-monorepo",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "npm install --prefix frontend",
-    "dev": "npm run dev --prefix frontend",
-    "build": "npm run build --prefix frontend",
-    "start": "npm run start --prefix frontend",
-    "lint": "npm run lint --prefix frontend",
-    "test": "npm run test --prefix frontend"
+    "build": "cd frontend && npm install && npm run build",
+    "install": "cd frontend && npm install"
+  },
+  "dependencies": {
+    "next": "16.2.3"
   }
 }
