@@ -185,7 +185,7 @@ echo "  https://stellar.expert/explorer/testnet/contract/$POOL"
 echo "═══════════════════════════════════════════════════════"
 
 # ── Write .env.local ──────────────────────────────────────────
-ENV_FILE="frontend/.env.local"
+ENV_FILE=".env.local"
 cat > "$ENV_FILE" << EOF
 NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
 NEXT_PUBLIC_RPC_URL=https://soroban-testnet.stellar.org

@@ -63,9 +63,6 @@ jobs:
   frontend:
     name: ⚡ Frontend (Lint + Build)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -74,7 +71,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -100,7 +97,7 @@ jobs:
   # ── Deploy Contracts to Testnet ───────────────────────────
   deploy-contracts:
     name: 📦 Deploy Contracts (Testnet)
-    needs: [contracts]
+    needs: [contracts, frontend]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
