@@ -17,11 +17,10 @@ echo "════════════════════════�
 
 # ── Build contracts ───────────────────────────────────────────
 echo ""
-echo "▶ Building contracts (optimized)..."
-stellar contract build --optimize
+echo "▶ Using pre-compiled contracts..."
 
-TOKEN_WASM="target/wasm32v1-none/release/soroswap_token.wasm"
-POOL_WASM="target/wasm32v1-none/release/soroswap_pool.wasm"
+TOKEN_WASM="target/wasm32-unknown-unknown/release/soroswap_token.wasm"
+POOL_WASM="target/wasm32-unknown-unknown/release/soroswap_pool.wasm"
 
 if [ ! -f "$TOKEN_WASM" ]; then
   echo "ERROR: Token WASM not found at $TOKEN_WASM"

@@ -93,34 +93,7 @@ jobs:
           CI: true
 
   # ── Deploy Frontend to Vercel ─────────────────────────────
-  deploy:
-    name: 🚀 Deploy to Vercel
-    needs: [contracts, frontend]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy to Vercel
-        run: |
-          cd frontend
-          vercel deploy --prod \
-            --token ${{ secrets.VERCEL_TOKEN }} \
-            --yes \
-            -e NEXT_PUBLIC_STELLAR_NETWORK=TESTNET \
-            -e NEXT_PUBLIC_RPC_URL=https://soroban-testnet.stellar.org \
-            -e NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org \
-            -e NEXT_PUBLIC_TOKEN_A_CONTRACT=${{ secrets.TOKEN_A_CONTRACT }} \
-            -e NEXT_PUBLIC_TOKEN_B_CONTRACT=${{ secrets.TOKEN_B_CONTRACT }} \
-            -e NEXT_PUBLIC_POOL_CONTRACT=${{ secrets.POOL_CONTRACT }}
+  # Note: Removed redundant CLI deployment. Vercel automatically deploys via GitHub integration.
 
   # ── Contract Deployment to Testnet ────────────────────────
   deploy-contracts:
@@ -138,7 +111,9 @@ jobs:
 
       - name: Install Stellar CLI
         run: |
-          cargo install --locked stellar-cli --features opt
+          wget -q https://github.com/stellar/stellar-cli/releases/download/v22.0.1/stellar-cli-22.0.1-x86_64-unknown-linux-gnu.tar.gz
+          tar -xvzf stellar-cli-*.tar.gz
+          sudo mv stellar-cli-*/stellar /usr/local/bin/
 
       - name: Download WASMs
         uses: actions/download-artifact@v4
