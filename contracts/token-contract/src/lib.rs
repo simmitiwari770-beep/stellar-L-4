@@ -1,17 +1,14 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, symbol_short,
-    token, Address, Env, String, Symbol,
-};
 use soroban_sdk::token::TokenInterface;
+use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Env, String, Symbol};
 
-mod storage_types;
 mod admin;
 mod allowance;
 mod balance;
-mod metadata;
 mod event;
+mod metadata;
+mod storage_types;
 
 use storage_types::DataKey;
 
@@ -32,13 +29,7 @@ pub struct SoroswapToken;
 
 #[contractimpl]
 impl SoroswapToken {
-    pub fn initialize(
-        env: Env,
-        admin: Address,
-        decimal: u32,
-        name: String,
-        symbol: String,
-    ) {
+    pub fn initialize(env: Env, admin: Address, decimal: u32, name: String, symbol: String) {
         if admin::has_administrator(&env) {
             panic!("already initialized")
         }
@@ -69,10 +60,8 @@ impl SoroswapToken {
         let admin = admin::read_administrator(&env);
         admin.require_auth();
         admin::write_administrator(&env, &new_admin);
-        env.events().publish(
-            (ADMIN_TOPIC, symbol_short!("set_admin")),
-            new_admin,
-        );
+        env.events()
+            .publish((ADMIN_TOPIC, symbol_short!("set_admin")), new_admin);
     }
 
     pub fn set_fee(env: Env, fee_bps: u32) {
@@ -81,13 +70,17 @@ impl SoroswapToken {
         if fee_bps > 1000 {
             panic!("fee cannot exceed 10%");
         }
-        env.storage().instance().set(&DataKey::TransferFee, &fee_bps);
+        env.storage()
+            .instance()
+            .set(&DataKey::TransferFee, &fee_bps);
     }
 
     pub fn set_fee_recipient(env: Env, recipient: Address) {
         let admin = admin::read_administrator(&env);
         admin.require_auth();
-        env.storage().instance().set(&DataKey::FeeRecipient, &recipient);
+        env.storage()
+            .instance()
+            .set(&DataKey::FeeRecipient, &recipient);
     }
 
     pub fn get_fee_bps(env: Env) -> u32 {
@@ -111,7 +104,13 @@ impl token::Interface for SoroswapToken {
     fn approve(env: Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
         from.require_auth();
         check_nonnegative_amount(amount);
-        allowance::write_allowance(&env, from.clone(), spender.clone(), amount, expiration_ledger);
+        allowance::write_allowance(
+            &env,
+            from.clone(),
+            spender.clone(),
+            amount,
+            expiration_ledger,
+        );
         event::approve(&env, from, spender, amount, expiration_ledger);
     }
 
@@ -124,7 +123,8 @@ impl token::Interface for SoroswapToken {
         check_nonnegative_amount(amount);
 
         // Apply transfer fee
-        let fee_bps = env.storage()
+        let fee_bps = env
+            .storage()
             .instance()
             .get::<DataKey, u32>(&DataKey::TransferFee)
             .unwrap_or(0);
@@ -142,7 +142,8 @@ impl token::Interface for SoroswapToken {
 
         // Send fee to fee recipient
         if fee_amount > 0 {
-            let fee_recipient = env.storage()
+            let fee_recipient = env
+                .storage()
                 .instance()
                 .get::<DataKey, Address>(&DataKey::FeeRecipient)
                 .unwrap();
@@ -162,7 +163,8 @@ impl token::Interface for SoroswapToken {
         check_nonnegative_amount(amount);
         allowance::spend_allowance(&env, from.clone(), spender, amount);
 
-        let fee_bps = env.storage()
+        let fee_bps = env
+            .storage()
             .instance()
             .get::<DataKey, u32>(&DataKey::TransferFee)
             .unwrap_or(0);
@@ -179,7 +181,8 @@ impl token::Interface for SoroswapToken {
         balance::receive_balance(&env, to.clone(), net_amount);
 
         if fee_amount > 0 {
-            let fee_recipient = env.storage()
+            let fee_recipient = env
+                .storage()
                 .instance()
                 .get::<DataKey, Address>(&DataKey::FeeRecipient)
                 .unwrap();

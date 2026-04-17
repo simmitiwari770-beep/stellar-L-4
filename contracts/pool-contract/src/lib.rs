@@ -13,10 +13,7 @@
 //! - 0.3% swap fee distributed to liquidity providers
 //! - Event emission for all operations
 
-use soroban_sdk::{
-    contract, contractimpl,
-    token, Address, Env,
-};
+use soroban_sdk::{contract, contractimpl, token, Address, Env};
 
 mod event;
 mod storage;
@@ -42,9 +39,7 @@ fn get_reserves(env: &Env) -> PoolReserves {
 
 fn save_reserves(env: &Env, reserves: &PoolReserves) {
     env.storage().instance().set(&DataKey::Reserves, reserves);
-    env.storage()
-        .instance()
-        .extend_ttl(500_000, 500_000);
+    env.storage().instance().extend_ttl(500_000, 500_000);
 }
 
 fn lp_balance(env: &Env, account: &Address) -> i128 {
@@ -57,12 +52,18 @@ fn lp_balance(env: &Env, account: &Address) -> i128 {
 fn set_lp_balance(env: &Env, account: &Address, amount: i128) {
     let key = DataKey::LpBalance(account.clone());
     env.storage().persistent().set(&key, &amount);
-    env.storage().persistent().extend_ttl(&key, 500_000, 500_000);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, 500_000, 500_000);
 }
 
 fn sqrt(y: i128) -> i128 {
     if y < 4 {
-        if y == 0 { 0 } else { 1 }
+        if y == 0 {
+            0
+        } else {
+            1
+        }
     } else {
         let mut z = y;
         let mut x = y / 2 + 1;
@@ -87,21 +88,14 @@ impl SoroswapPool {
             fee_to,
         };
         env.storage().instance().set(&DataKey::Config, &config);
-        env.storage()
-            .instance()
-            .extend_ttl(500_000, 500_000);
+        env.storage().instance().extend_ttl(500_000, 500_000);
 
         event::initialized(&env, token_a, token_b);
     }
 
     /// Add liquidity to the pool
     /// Returns the LP tokens minted
-    pub fn add_liquidity(
-        env: Env,
-        provider: Address,
-        amount_a: i128,
-        amount_b: i128,
-    ) -> i128 {
+    pub fn add_liquidity(env: Env, provider: Address, amount_a: i128, amount_b: i128) -> i128 {
         provider.require_auth();
 
         if amount_a <= 0 || amount_b <= 0 {
@@ -113,11 +107,21 @@ impl SoroswapPool {
 
         // — Inter-contract call: transfer token_a from provider to pool —
         let token_a_client = token::Client::new(&env, &config.token_a);
-        token_a_client.transfer_from(&env.current_contract_address(), &provider, &env.current_contract_address(), &amount_a);
+        token_a_client.transfer_from(
+            &env.current_contract_address(),
+            &provider,
+            &env.current_contract_address(),
+            &amount_a,
+        );
 
         // — Inter-contract call: transfer token_b from provider to pool —
         let token_b_client = token::Client::new(&env, &config.token_b);
-        token_b_client.transfer_from(&env.current_contract_address(), &provider, &env.current_contract_address(), &amount_b);
+        token_b_client.transfer_from(
+            &env.current_contract_address(),
+            &provider,
+            &env.current_contract_address(),
+            &amount_b,
+        );
 
         // Compute LP tokens to mint
         let lp_minted = if reserves.total_lp == 0 {
@@ -155,11 +159,7 @@ impl SoroswapPool {
     }
 
     /// Remove liquidity from the pool by burning LP tokens
-    pub fn remove_liquidity(
-        env: Env,
-        provider: Address,
-        lp_amount: i128,
-    ) -> (i128, i128) {
+    pub fn remove_liquidity(env: Env, provider: Address, lp_amount: i128) -> (i128, i128) {
         provider.require_auth();
 
         let current_lp = lp_balance(&env, &provider);
@@ -202,13 +202,7 @@ impl SoroswapPool {
     }
 
     /// Swap token_a for token_b (buy_b = true) or token_b for token_a
-    pub fn swap(
-        env: Env,
-        user: Address,
-        buy_b: bool,
-        amount_in: i128,
-        min_out: i128,
-    ) -> i128 {
+    pub fn swap(env: Env, user: Address, buy_b: bool, amount_in: i128, min_out: i128) -> i128 {
         user.require_auth();
 
         if amount_in <= 0 {
@@ -238,7 +232,12 @@ impl SoroswapPool {
 
             // Inter-contract call: receive token_a from user via transfer_from
             let token_a_client = token::Client::new(&env, &config.token_a);
-            token_a_client.transfer_from(&env.current_contract_address(), &user, &env.current_contract_address(), &amount_in);
+            token_a_client.transfer_from(
+                &env.current_contract_address(),
+                &user,
+                &env.current_contract_address(),
+                &amount_in,
+            );
 
             // Distribute fee to LP (stays in reserves as token_a)
             new_reserve_a = reserves.reserve_a + amount_in;
@@ -248,7 +247,15 @@ impl SoroswapPool {
             let token_b_client = token::Client::new(&env, &config.token_b);
             token_b_client.transfer(&env.current_contract_address(), &user, &amount_out);
 
-            event::swap(&env, user, config.token_a, config.token_b, amount_in, amount_out, fee_amount);
+            event::swap(
+                &env,
+                user,
+                config.token_a,
+                config.token_b,
+                amount_in,
+                amount_out,
+                fee_amount,
+            );
         } else {
             // swap B → A
             let numerator = amount_in_with_fee * reserves.reserve_a;
@@ -261,7 +268,12 @@ impl SoroswapPool {
 
             // Inter-contract call: receive token_b from user via transfer_from
             let token_b_client = token::Client::new(&env, &config.token_b);
-            token_b_client.transfer_from(&env.current_contract_address(), &user, &env.current_contract_address(), &amount_in);
+            token_b_client.transfer_from(
+                &env.current_contract_address(),
+                &user,
+                &env.current_contract_address(),
+                &amount_in,
+            );
 
             new_reserve_a = reserves.reserve_a - amount_out;
             new_reserve_b = reserves.reserve_b + amount_in;
@@ -270,7 +282,15 @@ impl SoroswapPool {
             let token_a_client = token::Client::new(&env, &config.token_a);
             token_a_client.transfer(&env.current_contract_address(), &user, &amount_out);
 
-            event::swap(&env, user, config.token_b, config.token_a, amount_in, amount_out, fee_amount);
+            event::swap(
+                &env,
+                user,
+                config.token_b,
+                config.token_a,
+                amount_in,
+                amount_out,
+                fee_amount,
+            );
         }
 
         save_reserves(

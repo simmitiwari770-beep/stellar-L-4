@@ -2,48 +2,83 @@
 #![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 
-use soroban_sdk::{
-    testutils::Address as _,
-    Address, Env,
-};
+use soroban_sdk::{testutils::Address as _, Address, Env};
 
 use crate::{SoroswapPool, SoroswapPoolClient};
 
 // We need a minimal token contract for testing
 mod token {
-    use soroban_sdk::{contract, contractimpl, Address, Env, String};
     use soroban_sdk::token::Interface as TokenInterface;
+    use soroban_sdk::{contract, contractimpl, Address, Env, String};
 
     #[contract]
     pub struct MockToken;
 
     #[contractimpl]
     impl TokenInterface for MockToken {
-        fn allowance(_env: Env, _from: Address, _spender: Address) -> i128 { 0 }
-        fn approve(_env: Env, _from: Address, _spender: Address, _amount: i128, _expiration_ledger: u32) {}
+        fn allowance(_env: Env, _from: Address, _spender: Address) -> i128 {
+            0
+        }
+        fn approve(
+            _env: Env,
+            _from: Address,
+            _spender: Address,
+            _amount: i128,
+            _expiration_ledger: u32,
+        ) {
+        }
         fn balance(env: Env, id: Address) -> i128 {
-            env.storage().persistent().get::<Address, i128>(&id).unwrap_or(0)
+            env.storage()
+                .persistent()
+                .get::<Address, i128>(&id)
+                .unwrap_or(0)
         }
         fn transfer(env: Env, from: Address, to: Address, amount: i128) {
-            let from_bal: i128 = env.storage().persistent().get::<Address, i128>(&from).unwrap_or(0);
-            if from_bal < amount { panic!("insufficient") }
-            env.storage().persistent().set::<Address, i128>(&from, &(from_bal - amount));
-            let to_bal: i128 = env.storage().persistent().get::<Address, i128>(&to).unwrap_or(0);
-            env.storage().persistent().set::<Address, i128>(&to, &(to_bal + amount));
+            let from_bal: i128 = env
+                .storage()
+                .persistent()
+                .get::<Address, i128>(&from)
+                .unwrap_or(0);
+            if from_bal < amount {
+                panic!("insufficient")
+            }
+            env.storage()
+                .persistent()
+                .set::<Address, i128>(&from, &(from_bal - amount));
+            let to_bal: i128 = env
+                .storage()
+                .persistent()
+                .get::<Address, i128>(&to)
+                .unwrap_or(0);
+            env.storage()
+                .persistent()
+                .set::<Address, i128>(&to, &(to_bal + amount));
         }
         fn transfer_from(env: Env, _spender: Address, from: Address, to: Address, amount: i128) {
             Self::transfer(env, from, to, amount);
         }
         fn burn(env: Env, from: Address, amount: i128) {
-            let bal: i128 = env.storage().persistent().get::<Address, i128>(&from).unwrap_or(0);
-            env.storage().persistent().set::<Address, i128>(&from, &(bal - amount));
+            let bal: i128 = env
+                .storage()
+                .persistent()
+                .get::<Address, i128>(&from)
+                .unwrap_or(0);
+            env.storage()
+                .persistent()
+                .set::<Address, i128>(&from, &(bal - amount));
         }
         fn burn_from(env: Env, _spender: Address, from: Address, amount: i128) {
             Self::burn(env, from, amount);
         }
-        fn decimals(_env: Env) -> u32 { 7 }
-        fn name(env: Env) -> String { String::from_str(&env, "Mock") }
-        fn symbol(env: Env) -> String { String::from_str(&env, "MCK") }
+        fn decimals(_env: Env) -> u32 {
+            7
+        }
+        fn name(env: Env) -> String {
+            String::from_str(&env, "Mock")
+        }
+        fn symbol(env: Env) -> String {
+            String::from_str(&env, "MCK")
+        }
     }
 }
 
@@ -59,7 +94,9 @@ fn setup_pool<'a>(env: &Env) -> (SoroswapPoolClient<'a>, Address, Address, Addre
 
 fn mint_token(env: &Env, token_id: &Address, user: &Address, amount: i128) {
     env.as_contract(token_id, || {
-        env.storage().persistent().set::<Address, i128>(user, &amount);
+        env.storage()
+            .persistent()
+            .set::<Address, i128>(user, &amount);
     });
 }
 

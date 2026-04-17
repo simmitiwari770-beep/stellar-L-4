@@ -2,10 +2,7 @@
 #![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 
-use soroban_sdk::{
-    testutils::Address as _,
-    Address, Env, String,
-};
+use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 use crate::{SoroswapToken, SoroswapTokenClient};
 
@@ -95,7 +92,12 @@ fn test_allowance() {
     let recipient = Address::generate(&env);
 
     client.mint(&owner, &1000_0000000i128);
-    client.approve(&owner, &spender, &200_0000000i128, &(env.ledger().sequence() + 1000));
+    client.approve(
+        &owner,
+        &spender,
+        &200_0000000i128,
+        &(env.ledger().sequence() + 1000),
+    );
     assert_eq!(client.allowance(&owner, &spender), 200_0000000i128);
 
     client.transfer_from(&spender, &owner, &recipient, &100_0000000i128);

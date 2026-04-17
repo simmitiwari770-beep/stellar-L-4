@@ -1,5 +1,5 @@
-use soroban_sdk::{Env};
 use crate::storage_types::{DataKey, TokenMetadata};
+use soroban_sdk::Env;
 
 pub fn read_decimal(env: &Env) -> u32 {
     let meta = env
@@ -29,7 +29,5 @@ pub fn read_symbol(env: &Env) -> soroban_sdk::String {
 }
 
 pub fn write_metadata(env: &Env, metadata: TokenMetadata) {
-    env.storage()
-        .instance()
-        .set(&DataKey::Metadata, &metadata);
+    env.storage().instance().set(&DataKey::Metadata, &metadata);
 }
