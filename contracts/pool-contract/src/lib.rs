@@ -14,9 +14,8 @@
 //! - Event emission for all operations
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short,
-    token, Address, Env, Symbol,
-    IntoVal,
+    contract, contractimpl,
+    token, Address, Env,
 };
 
 mod event;

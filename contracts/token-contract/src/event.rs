@@ -1,6 +1,6 @@
 use soroban_sdk::{symbol_short, Address, Env};
 
-pub fn mint(env: &Env, admin: Address, to: Address, amount: i128) {
+pub fn mint(env: &Env, _admin: Address, to: Address, amount: i128) {
     let topics = (symbol_short!("MINT"), to);
     env.events().publish(topics, amount);
 }

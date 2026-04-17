@@ -1,9 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short,
-    token::{self, Interface as _},
-    Address, Env, String, Symbol,
+    contract, contractimpl, symbol_short,
+    token, Address, Env, String, Symbol,
 };
 use soroban_sdk::token::TokenInterface;
 

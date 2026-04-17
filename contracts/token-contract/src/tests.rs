@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 
 use soroban_sdk::{

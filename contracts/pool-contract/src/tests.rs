@@ -1,12 +1,13 @@
 #![cfg(test)]
+#![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 
 use soroban_sdk::{
     testutils::Address as _,
-    Address, Env, String,
+    Address, Env,
 };
 
-use crate::{SoroswapPool, SoroswapPoolClient, PoolReserves};
+use crate::{SoroswapPool, SoroswapPoolClient};
 
 // We need a minimal token contract for testing
 mod token {

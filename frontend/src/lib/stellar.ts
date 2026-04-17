@@ -1,0 +1,297 @@
+import {
+  rpc as SorobanRpc,
+  TransactionBuilder,
+  Networks,
+  BASE_FEE,
+  xdr,
+  Address,
+  nativeToScVal,
+  scValToNative,
+  Contract,
+  Keypair,
+  Transaction,
+} from '@stellar/stellar-sdk';
+import { NETWORK, NETWORKS, CONTRACTS, TOKEN_FACTOR } from './config';
+
+const networkConfig = NETWORKS[NETWORK as keyof typeof NETWORKS];
+const server = new SorobanRpc.Server(networkConfig.rpcUrl, { allowHttp: false });
+
+// ─── Cache layer ──────────────────────────────────────────────────────────────
+const cache = new Map<string, { value: unknown; ts: number }>();
+const CACHE_TTL = 5000; // 5s
+
+function fromCache<T>(key: string): T | null {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.value as T;
+  }
+  return null;
+}
+
+function toCache(key: string, value: unknown) {
+  cache.set(key, { value, ts: Date.now() });
+}
+
+// ─── RPC helpers ──────────────────────────────────────────────────────────────
+export { server };
+
+export async function getAccount(publicKey: string) {
+  return server.getAccount(publicKey);
+}
+
+export function getNetworkPassphrase(): string {
+  return networkConfig.networkPassphrase;
+}
+
+export function getNetworkConfig() {
+  return networkConfig;
+}
+
+// ─── Simulate + send ──────────────────────────────────────────────────────────
+export async function simulateAndSend(
+  signedXdr: string
+): Promise<SorobanRpc.Api.SendTransactionResponse> {
+  const tx = TransactionBuilder.fromXDR(signedXdr, networkConfig.networkPassphrase) as Transaction;
+  const simResult = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulation failed: ${simResult.error}`);
+  }
+
+  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+  const response = await server.sendTransaction(preparedTx);
+  return response;
+}
+
+export async function waitForTransaction(
+  txHash: string,
+  maxAttempts = 30,
+  intervalMs = 2000
+): Promise<SorobanRpc.Api.GetTransactionResponse> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const response = await server.getTransaction(txHash);
+    if (response.status !== 'NOT_FOUND') {
+      return response;
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error(`Transaction ${txHash} not found after ${maxAttempts} attempts`);
+}
+
+// ─── Contract calls (read-only) ───────────────────────────────────────────────
+async function callContractView(
+  contractId: string,
+  method: string,
+  args: xdr.ScVal[]
+): Promise<xdr.ScVal> {
+  // Use a reliable funded account for simulation
+  const dummyAddress = 'GDTCBS3FUQECH6766JTTOPT5H52DINJ5T6MJ46RPTKB5QZNJWWVACKDC'; // Admin/Alice
+  const account = await server.getAccount(dummyAddress).catch(() => ({ 
+    accountId: () => dummyAddress,
+    sequenceNumber: () => '1',
+    incrementSequenceNumber: () => {}
+  }));
+  
+  const contract = new Contract(contractId);
+  const tx = new TransactionBuilder(account as any, {
+    fee: BASE_FEE,
+    networkPassphrase: networkConfig.networkPassphrase,
+  })
+    .addOperation(contract.call(method, ...args))
+    .setTimeout(30)
+    .build();
+
+  const result = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(result)) {
+    console.error(`View call [${method}] failed for ${contractId}:`, result.error);
+    throw new Error(`View call failed: ${result.error}`);
+  }
+  if (!result.result) throw new Error('No result from simulation');
+  return result.result.retval;
+}
+
+// ─── Token helpers ────────────────────────────────────────────────────────────
+export async function getTokenBalance(
+  contractId: string,
+  walletAddress: string
+): Promise<string> {
+  try {
+    const result = await callContractView(contractId, 'balance', [
+      new Address(walletAddress).toScVal(),
+    ]);
+    const raw = scValToNative(result) as bigint;
+    return (Number(raw) / TOKEN_FACTOR).toFixed(4);
+  } catch (err) {
+    console.warn(`Balance fetch failed for ${contractId}:`, err);
+    return '0.0000';
+  }
+}
+
+export async function getTokenSymbol(contractId: string): Promise<string> {
+  try {
+    const result = await callContractView(contractId, 'symbol', []);
+    return scValToNative(result) as string;
+  } catch {
+    return '???';
+  }
+}
+
+export async function getTokenDecimals(contractId: string): Promise<number> {
+  try {
+    const result = await callContractView(contractId, 'decimals', []);
+    return Number(scValToNative(result));
+  } catch {
+    return 7;
+  }
+}
+
+// ─── Pool helpers ─────────────────────────────────────────────────────────────
+export interface PoolReserves {
+  reserve_a: string;
+  reserve_b: string;
+  total_lp: string;
+}
+
+export async function getPoolReserves(): Promise<PoolReserves> {
+  if (!CONTRACTS.POOL) return { reserve_a: '0', reserve_b: '0', total_lp: '0' };
+
+  const cacheKey = 'pool:reserves';
+  const cached = fromCache<PoolReserves>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const result = await callContractView(CONTRACTS.POOL, 'get_reserves', []);
+    const raw = scValToNative(result) as { reserve_a: bigint; reserve_b: bigint; total_lp: bigint };
+    const reserves = {
+      reserve_a: (Number(raw.reserve_a) / TOKEN_FACTOR).toFixed(4),
+      reserve_b: (Number(raw.reserve_b) / TOKEN_FACTOR).toFixed(4),
+      total_lp: (Number(raw.total_lp) / TOKEN_FACTOR).toFixed(4),
+    };
+    toCache(cacheKey, reserves);
+    return reserves;
+  } catch {
+    return { reserve_a: '0', reserve_b: '0', total_lp: '0' };
+  }
+}
+
+export async function getLpBalance(walletAddress: string): Promise<string> {
+  if (!CONTRACTS.POOL) return '0';
+  try {
+    const result = await callContractView(CONTRACTS.POOL, 'get_lp_balance', [
+      new Address(walletAddress).toScVal(),
+    ]);
+    const raw = scValToNative(result) as bigint;
+    return (Number(raw) / TOKEN_FACTOR).toFixed(4);
+  } catch {
+    return '0';
+  }
+}
+
+export async function getSwapQuote(buyB: boolean, amountIn: number): Promise<number> {
+  if (!CONTRACTS.POOL || amountIn <= 0) return 0;
+  try {
+    const rawIn = BigInt(Math.floor(amountIn * TOKEN_FACTOR));
+    const result = await callContractView(CONTRACTS.POOL, 'quote', [
+      xdr.ScVal.scvBool(buyB),
+      nativeToScVal(rawIn, { type: 'i128' }),
+    ]);
+    const raw = scValToNative(result) as bigint;
+    return Number(raw) / TOKEN_FACTOR;
+  } catch {
+    return 0;
+  }
+}
+
+// ─── Build unsigned transaction XDR ──────────────────────────────────────────
+export async function buildContractCallXdr(
+  walletAddress: string,
+  contractId: string,
+  method: string,
+  args: xdr.ScVal[]
+): Promise<string> {
+  const account = await server.getAccount(walletAddress);
+  const contract = new Contract(contractId);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: networkConfig.networkPassphrase,
+  })
+    .addOperation(contract.call(method, ...args))
+    .setTimeout(300)
+    .build();
+
+  // Simulate to get resource fees
+  const simResult = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulation error: ${simResult.error}`);
+  }
+
+  const prepared = SorobanRpc.assembleTransaction(tx, simResult).build();
+  return prepared.toXDR();
+}
+
+// ─── Event streaming ──────────────────────────────────────────────────────────
+export async function getRecentEvents(contractIds: string[], limit = 50) {
+  try {
+    const ledger = await server.getLatestLedger();
+    // Broaden search to 100,000 ledgers (~1 week) to ensure we find history
+    const startLedger = Math.max(1, ledger.sequence - 100000);
+
+    const response = await server.getEvents({
+      startLedger,
+      filters: [
+        {
+          type: 'contract',
+          contractIds: contractIds,
+        },
+      ],
+      limit,
+    });
+
+    const events = response.events
+      .map((e) => {
+        try {
+          // Robust decoding: handle case where topic might be raw or already processed
+          const topics = e.topic.map((t) => {
+            try {
+              // Soroban events from stellar-sdk return ScVal directly
+              return scValToNative(t as xdr.ScVal);
+            } catch {
+              return String(t);
+            }
+          });
+
+          const value = e.value ? scValToNative(e.value as xdr.ScVal) : null;
+
+          return {
+            id: e.id,
+            ledger: e.ledger,
+            contractId: e.contractId,
+            type: String(topics[0] || 'unknown'),
+            value: value ? JSON.stringify(value, (_, v) => typeof v === 'bigint' ? v.toString() : v) : null,
+            txHash: e.txHash,
+          };
+        } catch (err) {
+          return null;
+        }
+      })
+      .filter((evt): evt is any => evt !== null);
+
+    return { events, latestLedger: ledger.sequence };
+  } catch (err) {
+    console.error('Final Event Fetch error:', err);
+    return { events: [], latestLedger: 0 };
+  }
+}
+
+export async function getLatestLedger() {
+  return server.getLatestLedger();
+}
+
+// ─── Friendbot ────────────────────────────────────────────────────────────────
+export async function fundTestnetAccount(publicKey: string): Promise<void> {
+  const url = `${NETWORKS.TESTNET.friendbotUrl}?addr=${publicKey}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Friendbot funding failed');
+  }
+}
