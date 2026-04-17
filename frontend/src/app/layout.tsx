@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   description:
     'A production-grade DeFi application built on Stellar Soroban. Swap tokens, provide liquidity, and earn fees — all on-chain.',
   keywords: ['Stellar', 'Soroban', 'DeFi', 'AMM', 'Liquidity Pool', 'Web3', 'Blockchain'],
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+  },
   openGraph: {
     title: 'SoroSwap — Stellar DeFi Protocol',
     description: 'Production DeFi on Stellar Soroban — real contracts, real swaps.',
