@@ -19,8 +19,8 @@ echo "════════════════════════�
 echo ""
 echo "▶ Using pre-compiled contracts..."
 
-TOKEN_WASM="target/wasm32-unknown-unknown/release/soroswap_token.wasm"
-POOL_WASM="target/wasm32-unknown-unknown/release/soroswap_pool.wasm"
+TOKEN_WASM="target/wasm32-unknown-unknown/release/soroswap_token.optimized.wasm"
+POOL_WASM="target/wasm32-unknown-unknown/release/soroswap_pool.optimized.wasm"
 
 if [ ! -f "$TOKEN_WASM" ]; then
   echo "ERROR: Token WASM not found at $TOKEN_WASM"

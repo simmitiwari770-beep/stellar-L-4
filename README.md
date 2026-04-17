@@ -65,11 +65,20 @@ The platform is fully optimized for mobile devices, ensuring a seamless DeFi exp
 1. `cd frontend && npm install`
 2. `npm run dev`
 
-## ⚙️ CI/CD Pipeline
-Fully automated via GitHub Actions:
-- **Rust**: Format check, Clippy lints, and unit tests on every push.
-- **Frontend**: ESLint, Type-checking, and Vitest for component reliability.
-- **Vercel**: Automated production deployments with environment variable protection.
+## ⚙️ CI/CD Setup
+
+The project uses GitHub Actions for automated testing and deployment. To enable production deployments, you MUST configure the following Secrets in your GitHub repository:
+
+| Secret | Description |
+| :--- | :--- |
+| **`DEPLOYER_SECRET_KEY`** | Secret key of your Stellar account used for contract deployment (S...). |
+| **`VERCEL_TOKEN`** | Your Vercel API token (found in Vercel Settings -> Tokens). |
+| **`VERCEL_ORG_ID`** | Your Vercel organization ID. |
+| **`VERCEL_PROJECT_ID`** | Your Vercel project ID. |
+
+### Deployment Workflow
+1. **Contracts**: Automatically optimized and deployed to Testnet on push to `main`.
+2. **Frontend**: Built and deployed to Vercel on push to `main` (if secrets are set).
 
 ---
 Built with ❤️ for the Stellar Community.
