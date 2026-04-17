@@ -18,11 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
+      # rust-toolchain.toml at repo root pins 1.81.0 automatically.
+      # dtolnay action is used to ensure the pinned version is available.
+      - name: Install Rust (1.81.0 pinned via rust-toolchain.toml)
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.81.0
           targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
 
       - name: Install Stellar CLI
         uses: stellar/stellar-cli@v26.0.0
@@ -36,8 +39,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          key: ${{ runner.os }}-cargo-1.81.0-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-1.81.0-
 
       - name: Check contract formatting
         run: cargo fmt --all -- --check
@@ -51,12 +54,12 @@ jobs:
       - name: Build release WASM
         run: cargo build --release --target wasm32-unknown-unknown
 
-      - name: Optimize WASMs
+      - name: Optimize WASMs (strips reference-types for Soroban compatibility)
         run: |
           stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_token.wasm
           stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_pool.wasm
 
-      - name: Upload WASMs
+      - name: Upload Optimized WASMs
         uses: actions/upload-artifact@v4
         with:
           name: contract-wasms
@@ -86,7 +89,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Type check
+      - name: Build (type-check + production bundle)
         run: npm run build
         env:
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
@@ -102,30 +105,47 @@ jobs:
           CI: true
 
   # ── Deploy Frontend to Vercel ─────────────────────────────
+  # NOTE: Vercel auto-deploys via its GitHub integration.
+  # This job uses the CLI for explicit production deployments.
+  # It will be SKIPPED if VERCEL_TOKEN secret is not configured —
+  # that is expected and does NOT fail the pipeline.
   deploy-frontend:
     name: 🚀 Deploy Frontend (Vercel)
     needs: [frontend]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.VERCEL_TOKEN != ''
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check Vercel secrets
+        id: check_secrets
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not configured. Skipping Vercel deployment."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Vercel CLI
+        if: steps.check_secrets.outputs.skip == 'false'
         run: npm install --global vercel@latest
+
       - name: Pull Vercel Project Information
+        if: steps.check_secrets.outputs.skip == 'false'
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
       - name: Build Project Artifacts
+        if: steps.check_secrets.outputs.skip == 'false'
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Deploy Project Artifacts to Vercel
+
+      - name: Deploy to Vercel
+        if: steps.check_secrets.outputs.skip == 'false'
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
   # ── Contract Deployment to Testnet ────────────────────────
   deploy-contracts:
@@ -136,8 +156,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust + WASM target
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (1.81.0)
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.81.0
           targets: wasm32-unknown-unknown
@@ -145,7 +165,7 @@ jobs:
       - name: Install Stellar CLI
         uses: stellar/stellar-cli@v26.0.0
 
-      - name: Download WASMs
+      - name: Download Optimized WASMs
         uses: actions/download-artifact@v4
         with:
           name: contract-wasms
@@ -155,11 +175,13 @@ jobs:
         run: |
           if [ -n "${{ secrets.DEPLOYER_SECRET_KEY }}" ]; then
             echo "${{ secrets.DEPLOYER_SECRET_KEY }}" | stellar keys add deployer --secret-key --stdin
+            echo "✅ Using pre-configured deployer identity"
           else
-            echo "WARNING: DEPLOYER_SECRET_KEY not set. Generating random address for deployment."
+            echo "ℹ️  DEPLOYER_SECRET_KEY not set — generating ephemeral keypair for this run"
+            stellar keys generate deployer --network testnet
           fi
 
-      - name: Deploy contracts
+      - name: Deploy contracts to Testnet
         run: bash scripts/deploy.sh
         env:
           SOROBAN_NETWORK: testnet
