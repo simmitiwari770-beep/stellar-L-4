@@ -1,6 +1,6 @@
 # ⚡ SoroSwap: Production-Grade DeFi on Stellar
 
-[![SoroSwap CI/CD](https://github.com/your-org/soroswap-defi/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/soroswap-defi/actions)
+[![SoroSwap CI/CD](https://github.com/simmitiwari770-beep/stellar-L-4/actions/workflows/ci.yml/badge.svg)](https://github.com/simmitiwari770-beep/stellar-L-4/actions)
 ![Stellar Testnet](https://img.shields.io/badge/Stellar-Testnet-blue)
 ![Soroban](https://img.shields.io/badge/Soroban-21.7.6-purple)
 
@@ -94,9 +94,11 @@ cargo test
 
 ## ⚙️ CI/CD Pipeline
 The project uses GitHub Actions for:
--   Rust compilation and testing.
--   Frontend linting and build validation.
--   Automatic deployment to Vercel (on `main` push).
+-   **Rust Quality**: Automatic compilation, linting, and unit testing of smart contracts.
+-   **Frontend Excellence**: TypeScript type-checking, ESLint validation, and Vitest execution.
+-   **Seamless Deployment**:
+    -   **Contracts**: Automatic deployment to Stellar Testnet on push to `main`.
+    -   **Frontend**: Handled by Vercel via automatic branch integration (configured in `vercel.json`).
 
 ---
 
