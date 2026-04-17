@@ -19,3 +19,8 @@ pub fn approve(env: &Env, from: Address, spender: Address, amount: i128, expirat
     let topics = (symbol_short!("APPROVE"), from, spender);
     env.events().publish(topics, (amount, expiration_ledger));
 }
+
+pub fn set_admin(env: &Env, admin: Address, new_admin: Address) {
+    let topics = (symbol_short!("ADMIN"), admin, symbol_short!("set"));
+    env.events().publish(topics, new_admin);
+}

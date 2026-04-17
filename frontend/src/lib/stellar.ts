@@ -250,27 +250,32 @@ export async function getRecentEvents(contractIds: string[], limit = 50) {
     const events = response.events
       .map((e) => {
         try {
-          // Robust decoding: handle case where topic might be raw or already processed
+          // Soroban events from stellar-sdk return ScVal directly
           const topics = e.topic.map((t) => {
             try {
-              // Soroban events from stellar-sdk return ScVal directly
               return scValToNative(t as xdr.ScVal);
             } catch {
-              return String(t);
+              return t.toString();
             }
           });
 
-          const value = e.value ? scValToNative(e.value as xdr.ScVal) : null;
+          let value: any = null;
+          try {
+            value = e.value ? scValToNative(e.value as xdr.ScVal) : null;
+          } catch {
+            value = e.value?.toString() || null;
+          }
 
           return {
             id: e.id,
             ledger: e.ledger,
             contractId: e.contractId,
             type: String(topics[0] || 'unknown'),
-            value: value ? JSON.stringify(value, (_, v) => typeof v === 'bigint' ? v.toString() : v) : null,
+            value: value ? JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? v.toString() : v)) : null,
             txHash: e.txHash,
           };
         } catch (err) {
+          console.error('Error parsing individual event:', err);
           return null;
         }
       })
@@ -278,7 +283,7 @@ export async function getRecentEvents(contractIds: string[], limit = 50) {
 
     return { events, latestLedger: ledger.sequence };
   } catch (err: any) {
-    console.warn('Final Event Fetch error:', err?.message || err);
+    console.error('getRecentEvents global error:', err?.message || err);
     return { events: [], latestLedger: 0 };
   }
 }

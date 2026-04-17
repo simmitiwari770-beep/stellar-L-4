@@ -29,18 +29,20 @@ export default function TokenPanel() {
 
       if (action === 'mint') {
         const to = recipient || publicKey!;
-        hash = await mintToken(contractId, to, amt);
+        hash = await mintToken(contractId!, to, amt);
       } else if (action === 'transfer') {
         if (!recipient) throw new Error('Recipient address required');
-        hash = await transferToken(contractId, recipient, amt);
+        hash = await transferToken(contractId!, recipient, amt);
       } else if (action === 'burn') {
-        hash = await burnToken(contractId, amt);
+        hash = await burnToken(contractId!, amt);
       }
 
       setTxHash(hash);
       setAmount('');
       setRecipient('');
-    } catch {/* shown via hook */}
+    } catch (err: any) {
+      console.warn('Token action failed:', err?.message || err);
+    }
   };
 
   const actions: { id: TokenAction; label: string; icon: string; desc: string }[] = [

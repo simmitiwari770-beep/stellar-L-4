@@ -53,16 +53,20 @@ export default function SwapPanel() {
     }
   }, [amountIn, sellA, fetchQuote]);
 
+  const [step, setStep] = useState<'idle' | 'approving' | 'swapping'>('idle');
+
   const handleSwap = async () => {
     clearError();
+    setTxHash(null);
+    setStep('approving');
     try {
-      // 1. Approve pool to spend tokens
       const amount = parseFloat(amountIn);
       const tokenContract = sellA ? CONTRACTS.TOKEN_A! : CONTRACTS.TOKEN_B!;
       
       console.log('Step 1: Approving pool...');
       await approveToken(tokenContract, CONTRACTS.POOL!, amount);
       
+      setStep('swapping');
       console.log('Step 2: Executing swap...');
       const hash = await swap(sellA, amount, quote);
       
@@ -71,6 +75,8 @@ export default function SwapPanel() {
       setQuote(0);
     } catch (err: any) {
       console.warn('Swap failed:', err?.message || err);
+    } finally {
+      setStep('idle');
     }
   };
 
@@ -220,7 +226,8 @@ export default function SwapPanel() {
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <span className="spinner" /> Processing…
+            <span className="spinner" /> 
+            {step === 'approving' ? 'Approving Tokens...' : step === 'swapping' ? 'Finalizing Swap...' : 'Processing…'}
           </span>
         ) : !connected ? (
           'Connect Wallet'

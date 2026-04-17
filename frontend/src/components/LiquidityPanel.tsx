@@ -14,6 +14,7 @@ export default function LiquidityPanel() {
   const [amountB, setAmountB] = useState('');
   const [lpAmount, setLpAmount] = useState('');
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [step, setStep] = useState<'idle' | 'approving_a' | 'approving_b' | 'adding' | 'removing'>('idle');
 
   const contractsSet = CONTRACTS.POOL && CONTRACTS.TOKEN_A && CONTRACTS.TOKEN_B;
 
@@ -33,35 +34,44 @@ export default function LiquidityPanel() {
 
   const handleAdd = async () => {
     clearError();
+    setTxHash(null);
     try {
       const valA = parseFloat(amountA);
       const valB = parseFloat(amountB);
       
       // Approve both tokens first
       if (CONTRACTS.POOL) {
-        console.log('Step 1: Approving Token A...');
+        setStep('approving_a');
         await approveToken(CONTRACTS.TOKEN_A!, CONTRACTS.POOL, valA);
-        console.log('Step 2: Approving Token B...');
+        
+        setStep('approving_b');
         await approveToken(CONTRACTS.TOKEN_B!, CONTRACTS.POOL, valB);
       }
       
-      console.log('Step 3: Adding liquidity...');
+      setStep('adding');
       const hash = await addLiquidity(valA, valB);
       setTxHash(hash);
       setAmountA('');
       setAmountB('');
     } catch (err: any) {
       console.error('Add liquidity failed:', err);
+    } finally {
+      setStep('idle');
     }
   };
 
   const handleRemove = async () => {
     clearError();
+    setTxHash(null);
+    setStep('removing');
     try {
       const hash = await removeLiquidity(parseFloat(lpAmount));
       setTxHash(hash);
       setLpAmount('');
     } catch { /* shown */ }
+    finally {
+      setStep('idle');
+    }
   };
 
   // Estimated withdrawal amounts
@@ -166,7 +176,10 @@ export default function LiquidityPanel() {
             className="btn-primary w-full py-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <span className="flex items-center justify-center gap-2"><span className="spinner" /> Processing…</span>
+              <span className="flex items-center justify-center gap-2">
+                <span className="spinner" /> 
+                {step === 'approving_a' ? 'Approving Token A...' : step === 'approving_b' ? 'Approving Token B...' : step === 'adding' ? 'Adding to Pool...' : 'Processing…'}
+              </span>
             ) : !connected ? (
               'Connect Wallet'
             ) : !hasEnoughA || !hasEnoughB ? (
@@ -219,7 +232,10 @@ export default function LiquidityPanel() {
             className="btn-danger w-full py-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <span className="flex items-center justify-center gap-2"><span className="spinner" /> Processing…</span>
+              <span className="flex items-center justify-center gap-2">
+                <span className="spinner" /> 
+                {step === 'removing' ? 'Removing from Pool...' : 'Processing…'}
+              </span>
             ) : parseFloat(lpAmount || '0') > parseFloat(lpBalance) ? (
               'Insufficient LP Balance'
             ) : (

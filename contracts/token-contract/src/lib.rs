@@ -50,8 +50,8 @@ impl SoroswapToken {
 
     pub fn mint(env: Env, to: Address, amount: i128) {
         check_nonnegative_amount(amount);
-        // let admin = admin::read_administrator(&env);
-        // admin.require_auth();
+        let admin = admin::read_administrator(&env);
+        admin.require_auth();
         balance::receive_balance(&env, to.clone(), amount);
         event::mint(&env, to.clone(), to, amount);
     }
@@ -60,8 +60,7 @@ impl SoroswapToken {
         let admin = admin::read_administrator(&env);
         admin.require_auth();
         admin::write_administrator(&env, &new_admin);
-        env.events()
-            .publish((ADMIN_TOPIC, symbol_short!("set_admin")), new_admin);
+        event::set_admin(&env, admin, new_admin);
     }
 
     pub fn set_fee(env: Env, fee_bps: u32) {
