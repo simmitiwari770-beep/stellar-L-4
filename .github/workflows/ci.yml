@@ -1,0 +1,157 @@
+name: SoroSwap CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: '20'
+
+jobs:
+  # ── Contract Build & Test ─────────────────────────────────
+  contracts:
+    name: 🦀 Contracts (Build + Test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check contract formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint contracts
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run contract tests
+        run: cargo test --all
+
+      - name: Build release WASM
+        run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Upload WASMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-wasms
+          path: target/wasm32-unknown-unknown/release/*.wasm
+          if-no-files-found: error
+
+  # ── Frontend Lint & Build ─────────────────────────────────
+  frontend:
+    name: ⚡ Frontend (Lint + Build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run build
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
+          NEXT_PUBLIC_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+          NEXT_PUBLIC_TOKEN_A_CONTRACT: ${{ secrets.TOKEN_A_CONTRACT }}
+          NEXT_PUBLIC_TOKEN_B_CONTRACT: ${{ secrets.TOKEN_B_CONTRACT }}
+          NEXT_PUBLIC_POOL_CONTRACT: ${{ secrets.POOL_CONTRACT }}
+
+      - name: Run frontend tests
+        run: npm run test -- --passWithNoTests
+        env:
+          CI: true
+
+  # ── Deploy Frontend to Vercel ─────────────────────────────
+  deploy:
+    name: 🚀 Deploy to Vercel
+    needs: [contracts, frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        run: |
+          cd frontend
+          vercel deploy --prod \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --yes \
+            -e NEXT_PUBLIC_STELLAR_NETWORK=TESTNET \
+            -e NEXT_PUBLIC_RPC_URL=https://soroban-testnet.stellar.org \
+            -e NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org \
+            -e NEXT_PUBLIC_TOKEN_A_CONTRACT=${{ secrets.TOKEN_A_CONTRACT }} \
+            -e NEXT_PUBLIC_TOKEN_B_CONTRACT=${{ secrets.TOKEN_B_CONTRACT }} \
+            -e NEXT_PUBLIC_POOL_CONTRACT=${{ secrets.POOL_CONTRACT }}
+
+  # ── Contract Deployment to Testnet ────────────────────────
+  deploy-contracts:
+    name: 📦 Deploy Contracts (Testnet)
+    needs: [contracts]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust + WASM target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install Stellar CLI
+        run: |
+          cargo install --locked stellar-cli --features opt
+
+      - name: Download WASMs
+        uses: actions/download-artifact@v4
+        with:
+          name: contract-wasms
+          path: target/wasm32-unknown-unknown/release/
+
+      - name: Configure Identity
+        run: |
+          echo "${{ secrets.DEPLOYER_SECRET_KEY }}" | stellar keys add deployer --secret-key --stdin || true
+
+      - name: Deploy contracts
+        run: bash scripts/deploy.sh
+        env:
+          SOROBAN_NETWORK: testnet
+          SOROBAN_IDENTITY: deployer

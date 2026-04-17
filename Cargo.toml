@@ -1,0 +1,16 @@
+[workspace]
+members = [
+  "contracts/token-contract",
+  "contracts/pool-contract",
+]
+resolver = "2"
+
+[profile.release]
+overflow-checks = true
+panic = "abort"
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = true
+opt-level = "z"
