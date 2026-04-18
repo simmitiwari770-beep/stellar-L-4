@@ -29,8 +29,10 @@ graph TD
 
 ## 🚀 Deployment Status (Stellar Testnet)
 
-- **Token Contract (SST)**: `CCFAFF4DWTW4TQAD2ZA4MC4HSDVFRCH2HZCAIRGLLK4TCKAVPPXLL5IM`
-- **Vault Contract**: `CDWFRXFWK56B5KTBK4XKYSFKSIAYJO3VJIU3YDVPH2UTU4U3Q4PPFW52`
+- **Token Contract (SST)**: `CDNLBEZJL7EAMB6Y3OUQC4VXOJSNZUI74Z6XT2757PLLB3HEH4ERLFYO`
+- **Vault Contract**: `CBR3S6Z24TJAQJRYOZWHD45YSUQUQLDW6WNRCRTMXTUCSJWQHAP5CQNP`
+
+**Vercel / hosting:** If `NEXT_PUBLIC_TOKEN_CONTRACT` or `NEXT_PUBLIC_VAULT_CONTRACT` are set in the dashboard, they **override** `src/lib/config.ts` defaults. After a new deploy, either **update** those variables to the pair above or **remove** them so the app uses the repo defaults.
 - **Pool Contract (optional AMM module)**: Deploy on-demand via `contracts/pool-contract`
 
 ### Testnet SST faucet (no server secret)

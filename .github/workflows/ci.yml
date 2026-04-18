@@ -85,8 +85,7 @@ jobs:
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
           NEXT_PUBLIC_RPC_URL: https://soroban-testnet.stellar.org
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
-          NEXT_PUBLIC_TOKEN_CONTRACT: ${{ secrets.TOKEN_CONTRACT }}
-          NEXT_PUBLIC_VAULT_CONTRACT: ${{ secrets.VAULT_CONTRACT }}
+          # Contract IDs: use defaults in src/lib/config.ts (avoid stale GitHub secrets overriding).
 
       - name: Run frontend tests
         run: npm run test -- --passWithNoTests
