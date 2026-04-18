@@ -17,10 +17,22 @@ export const NETWORKS = {
   },
 } as const;
 
+// Default Testnet deployment addresses for this repo's public demo.
+// You can override these with NEXT_PUBLIC_* env vars in Vercel / CI.
+const DEFAULT_TESTNET_TOKEN = 'CCFAFF4DWTW4TQAD2ZA4MC4HSDVFRCH2HZCAIRGLLK4TCKAVPPXLL5IM';
+const DEFAULT_TESTNET_VAULT = 'CDWFRXFWK56B5KTBK4XKYSFKSIAYJO3VJIU3YDVPH2UTU4U3Q4PPFW52';
+
 export const CONTRACTS = {
-  TOKEN: process.env.NEXT_PUBLIC_TOKEN_CONTRACT || '',
-  VAULT: process.env.NEXT_PUBLIC_VAULT_CONTRACT || '',
-  TOKEN_A: process.env.NEXT_PUBLIC_TOKEN_A_CONTRACT || process.env.NEXT_PUBLIC_TOKEN_CONTRACT || '',
+  TOKEN:
+    process.env.NEXT_PUBLIC_TOKEN_CONTRACT ||
+    (NETWORK === 'TESTNET' ? DEFAULT_TESTNET_TOKEN : ''),
+  VAULT:
+    process.env.NEXT_PUBLIC_VAULT_CONTRACT ||
+    (NETWORK === 'TESTNET' ? DEFAULT_TESTNET_VAULT : ''),
+  TOKEN_A:
+    process.env.NEXT_PUBLIC_TOKEN_A_CONTRACT ||
+    process.env.NEXT_PUBLIC_TOKEN_CONTRACT ||
+    (NETWORK === 'TESTNET' ? DEFAULT_TESTNET_TOKEN : ''),
   TOKEN_B: process.env.NEXT_PUBLIC_TOKEN_B_CONTRACT || '',
   POOL: process.env.NEXT_PUBLIC_POOL_CONTRACT || '',
 };

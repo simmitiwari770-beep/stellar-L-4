@@ -9,16 +9,15 @@ import {
   Address,
   nativeToScVal,
 } from '@stellar/stellar-sdk';
+import { CONTRACTS, NETWORK, NETWORKS } from '@/lib/config';
 
 // Real testnet faucet: mints SST to requester using DEPLOYER_SECRET_KEY (server-side only).
 // This is intended for demo/testnet only. Keep mint amount capped.
 
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://soroban-testnet.stellar.org';
-const TOKEN_CONTRACT = process.env.NEXT_PUBLIC_TOKEN_CONTRACT || '';
+const RPC_URL = NETWORKS[NETWORK as keyof typeof NETWORKS].rpcUrl;
+const TOKEN_CONTRACT = CONTRACTS.TOKEN;
 const NETWORK_PASSPHRASE =
-  (process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'TESTNET') === 'MAINNET'
-    ? Networks.PUBLIC
-    : Networks.TESTNET;
+  NETWORK === 'MAINNET' ? Networks.PUBLIC : Networks.TESTNET;
 
 const MINT_CAP_SST = 100; // 100 SST per request
 const DECIMALS = 7;

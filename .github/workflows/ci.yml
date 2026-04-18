@@ -16,8 +16,6 @@ jobs:
   contracts:
     name: 🦀 Contracts (Build + Test)
     runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: "-C target-feature=-reference-types"
     steps:
       - uses: actions/checkout@v4
 
