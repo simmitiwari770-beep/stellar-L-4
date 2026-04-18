@@ -1,9 +1,7 @@
-
-
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, Env};
-use soroban_sdk::token::Client as TokenClient;
 use soroban_sdk::testutils::Ledger;
+use soroban_sdk::token::Client as TokenClient;
+use soroban_sdk::{testutils::Address as _, Address, Env};
 
 fn mint_tokens(env: &Env, token_address: &Address, _admin: &Address, to: &Address, amount: i128) {
     use soroban_sdk::token::StellarAssetClient;
@@ -11,7 +9,9 @@ fn mint_tokens(env: &Env, token_address: &Address, _admin: &Address, to: &Addres
 }
 
 fn create_token_contract(env: &Env, admin: &Address) -> Address {
-    env.register_stellar_asset_contract_v2(admin.clone()).address().clone()
+    env.register_stellar_asset_contract_v2(admin.clone())
+        .address()
+        .clone()
 }
 
 #[test]
@@ -32,7 +32,13 @@ fn test_deposit_and_withdraw() {
 
     // Mint tokens
     mint_tokens(&env, &token_address, &admin, &user1, 1000_0000000i128);
-    mint_tokens(&env, &token_address, &admin, &vault_address, 10000_0000000i128);
+    mint_tokens(
+        &env,
+        &token_address,
+        &admin,
+        &vault_address,
+        10000_0000000i128,
+    );
 
     assert_eq!(token.balance(&user1), 1000_0000000i128);
 
@@ -67,7 +73,13 @@ fn test_rewards_accrue() {
     vault.initialize(&token_address, &10i128);
 
     mint_tokens(&env, &token_address, &admin, &user1, 1000_0000000i128);
-    mint_tokens(&env, &token_address, &admin, &vault_address, 10000_0000000i128);
+    mint_tokens(
+        &env,
+        &token_address,
+        &admin,
+        &vault_address,
+        10000_0000000i128,
+    );
 
     // Deposit 100 tokens at t=0
     token.approve(&user1, &vault_address, &100_0000000i128, &10000u32);

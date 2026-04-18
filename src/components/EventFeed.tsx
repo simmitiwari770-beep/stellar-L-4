@@ -5,6 +5,11 @@ import { EXPLORER_URL } from '@/lib/config';
 
 export default function EventFeed() {
   const { events, isStreaming, lastLedger, refresh } = useEventStream();
+  const short = (value: unknown, start = 6, end = 4) => {
+    const text = String(value ?? '');
+    if (text.length <= start + end || end <= 0) return text.slice(0, start);
+    return `${text.slice(0, start)}...${text.slice(-end)}`;
+  };
 
   const getEventStyle = (type: string) => {
     const t = type.toLowerCase();
@@ -87,14 +92,14 @@ export default function EventFeed() {
                 
                 {evt.value && (
                   <div className="rounded-lg bg-slate-950/40 p-2 font-mono text-slate-400 break-all mb-2 border border-white/5">
-                    {evt.value.slice(0, 80)}
-                    {(evt.value?.length || 0) > 80 && '…'}
+                    {String(evt.value).slice(0, 80)}
+                    {String(evt.value).length > 80 && '…'}
                   </div>
                 )}
                 
                 <div className="flex items-center justify-between opacity-80">
                   <span className="text-slate-500 truncate max-w-[120px] font-mono text-[10px]">
-                    ID: {evt.contractId.slice(0, 6)}…{evt.contractId.slice(-4)}
+                    ID: {short(evt.contractId)}
                   </span>
                   <a
                     href={`${EXPLORER_URL}/tx/${evt.txHash}`}
@@ -102,7 +107,7 @@ export default function EventFeed() {
                     rel="noopener noreferrer"
                     className="text-indigo-400 hover:text-indigo-300 font-mono text-[10px] flex items-center gap-1"
                   >
-                    TX: {evt.txHash.slice(0, 6)}…
+                    TX: {short(evt.txHash, 6, 0)}...
                     <span className="text-xs">↗</span>
                   </a>
                 </div>

@@ -1,4 +1,3 @@
-
 #![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 

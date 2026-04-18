@@ -13,6 +13,12 @@ import {
 } from '@stellar/stellar-sdk';
 import { NETWORK, NETWORKS, CONTRACTS, TOKEN_FACTOR } from './config';
 
+export interface CallParams {
+  contractId: string;
+  method: string;
+  args: xdr.ScVal[];
+}
+
 const networkConfig = NETWORKS[NETWORK as keyof typeof NETWORKS];
 const server = new SorobanRpc.Server(networkConfig.rpcUrl, { allowHttp: false });
 
@@ -60,6 +66,14 @@ export async function simulateAndSend(
 
   const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
   const response = await server.sendTransaction(preparedTx);
+  return response;
+}
+
+export async function sendPreparedTransaction(
+  signedXdr: string
+): Promise<SorobanRpc.Api.SendTransactionResponse> {
+  const tx = TransactionBuilder.fromXDR(signedXdr, networkConfig.networkPassphrase) as Transaction;
+  const response = await server.sendTransaction(tx);
   return response;
 }
 
@@ -172,6 +186,43 @@ export async function getPendingRewards(walletAddress: string): Promise<string> 
   }
 }
 
+// ─── AMM & Liquidity helpers ──────────────────────────────────────────────────
+export async function getPoolReserves() {
+  if (!CONTRACTS.POOL) return { reserve_a: '0', reserve_b: '0', total_lp: '0' };
+  try {
+    const result = await callContractView(CONTRACTS.POOL, 'get_reserves', []);
+    const native = scValToNative(result);
+    // Assuming [resA, resB, totalLP] format
+    return {
+      reserve_a: (Number(native[0]) / TOKEN_FACTOR).toFixed(4),
+      reserve_b: (Number(native[1]) / TOKEN_FACTOR).toFixed(4),
+      total_lp: (Number(native[2]) / TOKEN_FACTOR).toFixed(4),
+    };
+  } catch {
+    return { reserve_a: '0', reserve_b: '0', total_lp: '0' };
+  }
+}
+
+export async function getSwapQuote(buyB: boolean, amountIn: number): Promise<number> {
+  if (!CONTRACTS.POOL) return 0;
+  try {
+    const rawIn = BigInt(Math.floor(amountIn * TOKEN_FACTOR));
+    const result = await callContractView(CONTRACTS.POOL, 'quote', [
+      nativeToScVal(buyB, { type: 'bool' }),
+      nativeToScVal(rawIn, { type: 'i128' }),
+    ]);
+    const rawOut = scValToNative(result) as bigint;
+    return Number(rawOut) / TOKEN_FACTOR;
+  } catch {
+    return 0;
+  }
+}
+
+export async function getLPBalance(walletAddress: string): Promise<string> {
+  if (!CONTRACTS.POOL) return '0.0000';
+  return getTokenBalance(CONTRACTS.POOL, walletAddress);
+}
+
 // ─── Build unsigned transaction XDR ──────────────────────────────────────────
 export async function buildContractCallXdr(
   walletAddress: string,
@@ -199,15 +250,47 @@ export async function buildContractCallXdr(
   return prepared.toXDR();
 }
 
+export async function buildMultiCallXdr(
+  walletAddress: string,
+  calls: CallParams[]
+): Promise<string> {
+  const account = await server.getAccount(walletAddress);
+  const builder = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: networkConfig.networkPassphrase,
+  });
+
+  for (const call of calls) {
+    const contract = new Contract(call.contractId);
+    builder.addOperation(contract.call(call.method, ...call.args));
+  }
+
+  const tx = builder
+    .setTimeout(300)
+    .build();
+
+  // Simulate to get resource fees
+  const simResult = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulation error: ${simResult.error}`);
+  }
+
+  const prepared = SorobanRpc.assembleTransaction(tx, simResult).build();
+  return prepared.toXDR();
+}
+
 // ─── Event streaming ──────────────────────────────────────────────────────────
-export async function getRecentEvents(contractIds: string[], limit = 50) {
+export async function getRecentEvents(contractIds: string[], limit = 50, startLedger?: number) {
   try {
     const ledger = await server.getLatestLedger();
-    // Broaden search to 100,000 ledgers (~1 week) to ensure we find history
-    const startLedger = Math.max(1, ledger.sequence - 100000);
+    // On first load read recent history, then poll incrementally.
+    const effectiveStartLedger =
+      typeof startLedger === 'number'
+        ? Math.max(1, startLedger)
+        : Math.max(1, ledger.sequence - 10_000);
 
     const response = await server.getEvents({
-      startLedger,
+      startLedger: effectiveStartLedger,
       filters: [
         {
           type: 'contract',
@@ -236,13 +319,17 @@ export async function getRecentEvents(contractIds: string[], limit = 50) {
             value = e.value?.toString() || null;
           }
 
+          const eventId = String(e.id);
+          const contractId = String(e.contractId ?? '');
+          const txHash = String(e.txHash ?? '');
+
           return {
-            id: e.id,
+            id: eventId,
             ledger: e.ledger,
-            contractId: e.contractId,
+            contractId,
             type: String(topics[0] || 'unknown'),
             value: value ? JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? v.toString() : v)) : null,
-            txHash: e.txHash,
+            txHash,
           };
         } catch (err) {
           console.error('Error parsing individual event:', err);

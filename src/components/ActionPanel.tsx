@@ -9,7 +9,7 @@ export default function ActionPanel() {
         {/* Animated Glow Component */}
         <div className="absolute -left-20 -top-20 h-40 w-40 rounded-full bg-indigo-500/5 blur-3xl transition-opacity group-hover:opacity-40" />
         
-        <div className="relative flex items-center justify-between border-b border-slate-800/60 bg-slate-900/40 px-8 py-6">
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-800/60 bg-slate-900/40 px-5 py-5 sm:px-8 sm:py-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-inner">
               <ShieldCheck className="h-6 w-6" />
@@ -26,12 +26,12 @@ export default function ActionPanel() {
           </div>
         </div>
 
-        <div className="p-8 overflow-y-auto max-h-[700px] custom-scrollbar">
+        <div className="p-5 sm:p-8 overflow-y-auto max-h-[700px] custom-scrollbar">
           <VaultPanel />
         </div>
         
         {/* Footer detail */}
-        <div className="bg-slate-900/30 px-8 py-4 border-t border-slate-800/40 flex items-center justify-between">
+        <div className="bg-slate-900/30 px-5 py-4 sm:px-8 border-t border-slate-800/40 flex items-center justify-between">
            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Audited by SoroShield</span>
            <span className="text-[9px] font-bold text-indigo-500/50 uppercase tracking-widest">Gas Efficient</span>
         </div>

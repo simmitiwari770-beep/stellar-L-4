@@ -4,10 +4,20 @@ import { useState } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { Loader2, ArrowDownCircle, ArrowUpCircle, Sparkles, Wallet } from 'lucide-react';
 import { signTransaction } from '@stellar/freighter-api';
-import { getLatestLedger } from '@/lib/stellar';
+import { Address, nativeToScVal } from '@stellar/stellar-sdk';
+import { CONTRACTS, TOKEN_FACTOR, EXPLORER_URL } from '@/lib/config';
+import { 
+  buildContractCallXdr,
+  buildMultiCallXdr,
+  sendPreparedTransaction,
+  waitForTransaction,
+  getLatestLedger,
+  getNetworkPassphrase,
+  type CallParams
+} from '@/lib/stellar';
 
 export default function VaultPanel() {
-  const { connected, publicKey, refreshBalances, vaultBalance, pendingRewards, addTransaction } = useWallet();
+  const { connected, publicKey, refreshBalances, vaultBalance, pendingRewards, addTransaction, tokenBalance } = useWallet();
   
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -25,36 +35,42 @@ export default function VaultPanel() {
       const currentLedger = await getLatestLedger();
       const expirationLedger = currentLedger.sequence + 5000;
       
-      const approveXdr = await buildContractCallXdr(
-        publicKey,
-        CONTRACTS.TOKEN,
-        'approve',
-        [
-          new Address(publicKey).toScVal(),
-          new Address(CONTRACTS.VAULT).toScVal(),
-          nativeToScVal(amountNative, { type: 'i128' }),
-          nativeToScVal(expirationLedger, { type: 'u32' }),
-        ]
-      );
+      if (!CONTRACTS.TOKEN || !CONTRACTS.VAULT) {
+        throw new Error('Contract addresses not configured');
+      }
+
+      console.log('Building atomic Approve + Deposit transaction...');
+      const calls: CallParams[] = [
+        {
+          contractId: CONTRACTS.TOKEN,
+          method: 'approve',
+          args: [
+            new Address(publicKey).toScVal(),
+            new Address(CONTRACTS.VAULT).toScVal(),
+            nativeToScVal(amountNative, { type: 'i128' }),
+            nativeToScVal(expirationLedger, { type: 'u32' }),
+          ]
+        },
+        {
+          contractId: CONTRACTS.VAULT,
+          method: 'deposit',
+          args: [
+            new Address(publicKey).toScVal(),
+            nativeToScVal(amountNative, { type: 'i128' }),
+          ]
+        }
+      ];
+
+      const multiCallXdr = await buildMultiCallXdr(publicKey, calls);
+      const passphrase = getNetworkPassphrase();
       
-      const signedApprove = await signTransaction(approveXdr, { network: "TESTNET" });
-      const approveRes = await simulateAndSend(signedApprove);
-      if (approveRes.status !== 'PENDING') throw new Error('Approve failed');
-      await waitForTransaction(approveRes.hash);
+      const signedMulti = await signTransaction(multiCallXdr, { networkPassphrase: passphrase });
+      const depositRes = await sendPreparedTransaction(signedMulti.signedTxXdr);
       
-      // Step 2: Deposit to Vault
-      const depositXdr = await buildContractCallXdr(
-        publicKey,
-        CONTRACTS.VAULT,
-        'deposit',
-        [
-          new Address(publicKey).toScVal(),
-          nativeToScVal(amountNative, { type: 'i128' }),
-        ]
-      );
-      
-      const signedDeposit = await signTransaction(depositXdr, { network: "TESTNET" });
-      const depositRes = await simulateAndSend(signedDeposit);
+      if (depositRes.status !== 'PENDING') {
+        console.error('Atomic Deposit failed RPC Response:', depositRes);
+        throw new Error(`Atomic Deposit failed: ${depositRes.status} ${depositRes.errorResult || ''}`);
+      }
       
       addTransaction({
         id: depositRes.hash,
@@ -94,9 +110,15 @@ export default function VaultPanel() {
           nativeToScVal(amountNative, { type: 'i128' }),
         ]
       );
+      const passphrase = getNetworkPassphrase();
       
-      const signedWithdraw = await signTransaction(withdrawXdr, { network: "TESTNET" });
-      const withdrawRes = await simulateAndSend(signedWithdraw);
+      const signedWithdraw = await signTransaction(withdrawXdr, { networkPassphrase: passphrase });
+      const withdrawRes = await sendPreparedTransaction(signedWithdraw.signedTxXdr);
+      
+      if (withdrawRes.status !== 'PENDING') {
+        console.error('Withdraw failed RPC Response:', withdrawRes);
+        throw new Error(`Withdraw failed: ${withdrawRes.status} ${withdrawRes.errorResult || ''}`);
+      }
       
       addTransaction({
         id: withdrawRes.hash,
@@ -134,9 +156,15 @@ export default function VaultPanel() {
           new Address(publicKey).toScVal(),
         ]
       );
+      const passphrase = getNetworkPassphrase();
       
-      const signedClaim = await signTransaction(claimXdr, { network: "TESTNET" });
-      const claimRes = await simulateAndSend(signedClaim);
+      const signedClaim = await signTransaction(claimXdr, { networkPassphrase: passphrase });
+      const claimRes = await sendPreparedTransaction(signedClaim.signedTxXdr);
+      
+      if (claimRes.status !== 'PENDING') {
+        console.error('Claim failed RPC Response:', claimRes);
+        throw new Error(`Claim failed: ${claimRes.status} ${claimRes.errorResult || ''}`);
+      }
       
       addTransaction({
         id: claimRes.hash,
@@ -207,10 +235,10 @@ export default function VaultPanel() {
             Deposit Tokens
           </h3>
           <button 
-            onClick={() => setDepositAmount(useWallet().tokenBalance)}
+            onClick={() => setDepositAmount(tokenBalance)}
             className="text-[10px] font-bold text-indigo-400/70 hover:text-indigo-400 uppercase tracking-widest px-2 py-1 rounded-md bg-indigo-500/5 border border-indigo-500/10 transition-colors"
           >
-            Use Max: {useWallet().tokenBalance}
+            Use Max: {tokenBalance}
           </button>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">

@@ -13,7 +13,7 @@ SoroVault is a production-ready decentralized Vault dApp built on Stellar using 
 - **🪙 Custom Token (SST)**: Full-featured Soroban token with custom minting and administrative controls.
 - **🏦 Yield-Bearing Vault**: High-performance vault implementation with time-accrued rewards and partial/full withdrawal support.
 - **🔐 Secure Wallet Integration**: Production-grade transaction lifecycle management using the Freighter browser wallet.
-- **⚡ Real-time State Polking**: Dynamic UI updates with ledger-level precision.
+- **⚡ Real-time State Polling**: Dynamic UI updates with ledger-level precision.
 - **📱 Premium UX/UI**: Mobile-first, glassmorphism design with Lucide iconography.
 
 ## 🏗️ Architecture
@@ -31,6 +31,7 @@ graph TD
 
 - **Token Contract (SST)**: `CCFAFF4DWTW4TQAD2ZA4MC4HSDVFRCH2HZCAIRGLLK4TCKAVPPXLL5IM`
 - **Vault Contract**: `CDWFRXFWK56B5KTBK4XKYSFKSIAYJO3VJIU3YDVPH2UTU4U3Q4PPFW52`
+- **Pool Contract (optional AMM module)**: Deploy on-demand via `contracts/pool-contract`
 
 ### 🔗 Inter-Contract Call Proof
 When a user deposits tokens via the Vault, the following sequence occurs:
@@ -62,6 +63,25 @@ The project implements a robust GitHub Actions workflow that:
 3. Performs optimized WASM compilation.
 4. Lints and builds the Next.js frontend.
 5. Deploys contracts to Testnet (on `main` push).
+
+## 📦 Submission Checklist Mapping
+
+- **Public GitHub repository**: [stellar-L-4](https://github.com/simmitiwari770-beep/stellar-L-4)
+- **Live demo**: Deploy this repo to Vercel/Netlify and add the URL here before submission.
+- **Mobile responsive screenshot**: Add real screenshot at `docs/mobile-responsive.png` and reference it here.
+- **CI/CD proof**: GitHub Actions badge is shown at the top of this README.
+- **Inter-contract call proof**: Vault `deposit`/`withdraw` call token `transfer_from`/`transfer`.
+- **Contract addresses**: Token and Vault addresses listed above.
+- **Transaction hash proof**: Capture and add real testnet tx hashes from Stellar Expert before submitting.
+- **Token or pool address**: SST token address listed; add pool address if you deploy AMM module.
+
+## ✅ Production Verification Commands
+
+- `cargo test --all`
+- `cargo clippy --all-targets --all-features -- -D warnings`
+- `npm run lint`
+- `npm run test -- --run`
+- `npm run build`
 
 ---
 Built by Antigravity for the Stellar Advanced Coding Challenge.

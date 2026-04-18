@@ -13,13 +13,15 @@ import {
   getVaultBalance,
   getPendingRewards,
   getLatestLedger,
+  getPoolReserves,
+  getLPBalance,
 } from '@/lib/stellar';
 import { CONTRACTS, POLLING_INTERVAL_MS } from '@/lib/config';
 
 export interface TxRecord {
   id: string;
   hash: string;
-  type: 'mint' | 'transfer' | 'deposit' | 'withdraw' | 'claim' | 'approve';
+  type: 'mint' | 'transfer' | 'deposit' | 'withdraw' | 'claim' | 'approve' | 'swap' | 'add_liquidity' | 'remove_liquidity';
   status: 'pending' | 'success' | 'failed';
   amount?: string;
   timestamp: number;
@@ -33,6 +35,10 @@ interface WalletContextType {
   freighterInstalled: boolean;
   isConnecting: boolean;
   tokenBalance: string;
+  tokenABalance: string;
+  tokenBBalance: string;
+  lpBalance: string;
+  poolReserves: { reserve_a: string; reserve_b: string; total_lp: string };
   vaultBalance: string;
   pendingRewards: string;
   transactions: TxRecord[];
@@ -53,6 +59,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [freighterInstalled, setFreighterInstalled] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [tokenBalance, setTokenBalance] = useState('0.0000');
+  const [tokenABalance, setTokenABalance] = useState('0.0000');
+  const [tokenBBalance, setTokenBBalance] = useState('0.0000');
+  const [lpBalance, setLpBalance] = useState('0.0000');
+  const [poolReserves, setPoolReserves] = useState({ reserve_a: '0', reserve_b: '0', total_lp: '0' });
   const [vaultBalance, setVaultBalance] = useState('0.0000');
   const [pendingRewards, setPendingRewards] = useState('0.0000');
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
@@ -91,13 +101,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const refreshBalances = useCallback(async () => {
     if (!publicKey) return;
     try {
-      const [t, v, r, lat] = await Promise.all([
+      const [t, tA, tB, lp, res, v, r, lat] = await Promise.all([
         CONTRACTS.TOKEN ? getTokenBalance(CONTRACTS.TOKEN, publicKey) : Promise.resolve('0.0000'),
+        CONTRACTS.TOKEN_A ? getTokenBalance(CONTRACTS.TOKEN_A, publicKey) : Promise.resolve('0.0000'),
+        CONTRACTS.TOKEN_B ? getTokenBalance(CONTRACTS.TOKEN_B, publicKey) : Promise.resolve('0.0000'),
+        getLPBalance(publicKey),
+        getPoolReserves(),
         getVaultBalance(publicKey),
         getPendingRewards(publicKey),
         getLatestLedger(),
       ]);
       setTokenBalance(t);
+      setTokenABalance(tA);
+      setTokenBBalance(tB);
+      setLpBalance(lp);
+      setPoolReserves(res);
       setVaultBalance(v);
       setPendingRewards(r);
       setLedger(lat.sequence);
@@ -136,6 +154,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setConnected(false);
     setPublicKey(null);
     setTokenBalance('0.0000');
+    setTokenABalance('0.0000');
+    setTokenBBalance('0.0000');
+    setLpBalance('0.0000');
+    setPoolReserves({ reserve_a: '0', reserve_b: '0', total_lp: '0' });
     setVaultBalance('0.0000');
     setPendingRewards('0.0000');
   };
@@ -159,6 +181,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         freighterInstalled,
         isConnecting,
         tokenBalance,
+        tokenABalance,
+        tokenBBalance,
+        lpBalance,
+        poolReserves,
         vaultBalance,
         pendingRewards,
         transactions,

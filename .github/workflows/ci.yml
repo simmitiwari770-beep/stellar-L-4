@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   NODE_VERSION: '20'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ── Contract Build & Test ─────────────────────────────────
@@ -49,6 +50,7 @@ jobs:
         run: |
           stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_token.wasm
           stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_vault.wasm
+          stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_pool.wasm
           echo "--- Optimized files ---"
           ls -la target/wasm32-unknown-unknown/release/*.optimized.wasm
 

@@ -10,8 +10,6 @@ mod event;
 mod metadata;
 mod storage_types;
 
-
-
 pub const MINT_TOPIC: Symbol = symbol_short!("MINT");
 pub const BURN_TOPIC: Symbol = symbol_short!("BURN");
 pub const TRANSFER_TOPIC: Symbol = symbol_short!("TRANSFER");

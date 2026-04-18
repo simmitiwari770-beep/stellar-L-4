@@ -2,6 +2,7 @@
 members = [
   "contracts/token-contract",
   "contracts/vault-contract",
+  "contracts/pool-contract",
 ]
 resolver = "2"
 

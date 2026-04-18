@@ -20,6 +20,9 @@ export const NETWORKS = {
 export const CONTRACTS = {
   TOKEN: process.env.NEXT_PUBLIC_TOKEN_CONTRACT || '',
   VAULT: process.env.NEXT_PUBLIC_VAULT_CONTRACT || '',
+  TOKEN_A: process.env.NEXT_PUBLIC_TOKEN_A_CONTRACT || process.env.NEXT_PUBLIC_TOKEN_CONTRACT || '',
+  TOKEN_B: process.env.NEXT_PUBLIC_TOKEN_B_CONTRACT || '',
+  POOL: process.env.NEXT_PUBLIC_POOL_CONTRACT || '',
 };
 
 export const TOKEN_DECIMALS = 7;
@@ -29,5 +32,6 @@ export const POLLING_INTERVAL_MS = 6000; // ~1 ledger
 export const MAX_RETRIES = 3;
 export const SLIPPAGE_BPS = 50; // 0.5% default slippage
 
-export const GITHUB_REPO = 'https://github.com/your-org/soroswap-defi';
+export const GITHUB_REPO =
+  process.env.NEXT_PUBLIC_GITHUB_REPO || 'https://github.com/simmitiwari770-beep/stellar-L-4';
 export const EXPLORER_URL = 'https://stellar.expert/explorer/testnet';

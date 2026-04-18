@@ -17,26 +17,31 @@ export function useEventStream() {
   const [isStreaming, setIsStreaming] = useState(true);
   const [lastLedger, setLastLedger] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
 
   const fetchEvents = useCallback(async () => {
-    const contractsToWatch = [CONTRACTS.TOKEN_A, CONTRACTS.TOKEN_B, CONTRACTS.POOL].filter(Boolean);
+    const contractsToWatch = [CONTRACTS.TOKEN, CONTRACTS.VAULT].filter(Boolean);
     if (!contractsToWatch.length) return;
 
     try {
-      const { events: evts, latestLedger } = await getRecentEvents(contractsToWatch, 50);
+      const startFrom = lastLedger > 0 ? lastLedger + 1 : undefined;
+      const { events: evts, latestLedger } = await getRecentEvents(contractsToWatch, 50, startFrom);
       
       if (latestLedger > 0) {
-        const sorted = evts.sort((a, b) => b.ledger - a.ledger);
-        setEvents(sorted as any);
+        const incoming = evts.filter((evt) => !seenIdsRef.current.has(evt.id));
+        for (const evt of incoming) {
+          seenIdsRef.current.add(evt.id);
+        }
+        const sorted = incoming.sort((a, b) => b.ledger - a.ledger) as ChainEvent[];
+        setEvents((prev) => [...sorted, ...prev].slice(0, 200));
         setLastLedger(latestLedger);
       }
     } catch (e: any) {
       console.warn('Event stream error:', e?.message || e);
     }
-  }, []);
+  }, [lastLedger]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEvents();
     timerRef.current = setInterval(fetchEvents, POLLING_INTERVAL_MS);
     return () => {
