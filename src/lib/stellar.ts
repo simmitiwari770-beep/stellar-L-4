@@ -79,8 +79,8 @@ export async function sendPreparedTransaction(
 
 export async function waitForTransaction(
   txHash: string,
-  maxAttempts = 30,
-  intervalMs = 2000
+  maxAttempts = 50,
+  intervalMs = 2500
 ): Promise<SorobanRpc.Api.GetTransactionResponse> {
   for (let i = 0; i < maxAttempts; i++) {
     const response = await server.getTransaction(txHash);

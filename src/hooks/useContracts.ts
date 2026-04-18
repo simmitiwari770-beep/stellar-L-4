@@ -46,6 +46,7 @@ export function useContracts() {
         timestamp: Date.now(),
       });
 
+      let chainConfirmed = false;
       try {
         const xdrTx = await withRetry(() =>
           buildContractCallXdr(publicKey, contractId, method, args)
@@ -74,7 +75,7 @@ export function useContracts() {
 
         // Wait for confirmation
         const finalResult = await waitForTransaction(txHash);
-        const success = finalResult.status === 'SUCCESS';
+        const success = String(finalResult.status ?? '').toUpperCase() === 'SUCCESS';
 
         updateTransaction(txId, {
           status: success ? 'success' : 'failed',
@@ -82,12 +83,19 @@ export function useContracts() {
 
         if (!success) throw new Error('Transaction failed on chain');
 
-        await refreshBalances();
+        chainConfirmed = true;
+        try {
+          await refreshBalances();
+        } catch (refr: any) {
+          console.warn('Balance refresh after tx:', refr?.message || refr);
+        }
         return txHash;
       } catch (err: any) {
         const msg = err?.message || 'Transaction failed';
         setError(msg);
-        updateTransaction(txId, { status: 'failed' });
+        if (!chainConfirmed) {
+          updateTransaction(txId, { status: 'failed' });
+        }
         throw err;
       } finally {
         setLoading(false);

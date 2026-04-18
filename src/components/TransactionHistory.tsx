@@ -56,7 +56,7 @@ export default function TransactionHistory() {
                   <p className="font-semibold text-white">{TYPE_LABELS[tx.type] || tx.type}</p>
                   {tx.hash ? (
                     <a
-                      href={`${EXPLORER_URL}/tx/${tx.hash}`}
+                      href={tx.explorerUrl || `${EXPLORER_URL}/tx/${tx.hash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
@@ -64,7 +64,10 @@ export default function TransactionHistory() {
                       {tx.hash.slice(0, 8)}…{tx.hash.slice(-6)}
                     </a>
                   ) : (
-                    <span className="text-xs text-slate-500">Pending…</span>
+                    <span className="text-xs text-slate-500">Awaiting hash…</span>
+                  )}
+                  {tx.amount != null && tx.amount !== '' && (
+                    <p className="mt-0.5 text-xs text-slate-500">{tx.amount} SST</p>
                   )}
                 </div>
               </div>

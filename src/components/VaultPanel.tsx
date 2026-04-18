@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
-import { Loader2, ArrowDownCircle, ArrowUpCircle, Sparkles, Wallet } from 'lucide-react';
+import { Loader2, ArrowDownCircle, ArrowUpCircle, Sparkles, Wallet, Copy } from 'lucide-react';
 import { signTransaction } from '@stellar/freighter-api';
 import { Address, nativeToScVal } from '@stellar/stellar-sdk';
 import { CONTRACTS, TOKEN_FACTOR, EXPLORER_URL } from '@/lib/config';
@@ -14,8 +14,21 @@ import {
   getNetworkPassphrase,
 } from '@/lib/stellar';
 
+function isTxSuccess(status: string | undefined): boolean {
+  return String(status ?? '').toUpperCase() === 'SUCCESS';
+}
+
 export default function VaultPanel() {
-  const { connected, publicKey, refreshBalances, vaultBalance, pendingRewards, addTransaction, tokenBalance } = useWallet();
+  const {
+    connected,
+    publicKey,
+    refreshBalances,
+    vaultBalance,
+    pendingRewards,
+    addTransaction,
+    updateTransaction,
+    tokenBalance,
+  } = useWallet();
   
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -26,6 +39,17 @@ export default function VaultPanel() {
   const walletTokenValue = parseFloat(tokenBalance || '0');
   const hasEnoughWalletBalanceForDeposit = depositValue <= walletTokenValue;
   const [faucetLoading, setFaucetLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyText = async (label: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(label);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      setCopiedField(null);
+    }
+  };
 
   const requestTestTokens = async () => {
     if (!publicKey || !CONTRACTS.TOKEN) return;
@@ -93,6 +117,7 @@ export default function VaultPanel() {
     setError(null);
     setTxHash(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT || !CONTRACTS.TOKEN) return;
+    let historyHash: string | null = null;
     try {
       if (!depositAmount || Number.isNaN(depositValue) || depositValue <= 0) {
         throw new Error('Enter a valid deposit amount');
@@ -121,6 +146,9 @@ export default function VaultPanel() {
         nativeToScVal(expirationLedger, { type: 'u32' }),
       ]);
       const signedApprove = await signTransaction(approveXdr, { networkPassphrase: passphrase });
+      if (signedApprove.error) {
+        throw new Error(signedApprove.error);
+      }
       const approveRes = await sendPreparedTransaction(signedApprove.signedTxXdr);
       if (approveRes.status !== 'PENDING') {
         throw new Error(`Approve failed: ${approveRes.status} ${approveRes.errorResult || ''}`);
@@ -132,6 +160,9 @@ export default function VaultPanel() {
         nativeToScVal(amountNative, { type: 'i128' }),
       ]);
       const signedDeposit = await signTransaction(depositXdr, { networkPassphrase: passphrase });
+      if (signedDeposit.error) {
+        throw new Error(signedDeposit.error);
+      }
       const depositRes = await sendPreparedTransaction(signedDeposit.signedTxXdr);
       
       if (depositRes.status !== 'PENDING') {
@@ -139,22 +170,40 @@ export default function VaultPanel() {
         throw new Error(`Atomic Deposit failed: ${depositRes.status} ${depositRes.errorResult || ''}`);
       }
       
+      historyHash = depositRes.hash;
       addTransaction({
         id: depositRes.hash,
         hash: depositRes.hash,
         type: 'deposit',
         status: 'pending',
         amount: depositAmount,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        explorerUrl: `${EXPLORER_URL}/tx/${depositRes.hash}`,
       });
       
-      await waitForTransaction(depositRes.hash);
-      
+      const depositFinal = await waitForTransaction(depositRes.hash);
+      const depositOk = isTxSuccess(depositFinal.status);
+      updateTransaction(depositRes.hash, {
+        status: depositOk ? 'success' : 'failed',
+      });
+      if (!depositOk) {
+        throw new Error(
+          `Deposit did not succeed on-chain (${depositFinal.status || 'unknown'}). See explorer for details.`
+        );
+      }
+
       setTxHash(depositRes.hash);
       setDepositAmount('');
-      refreshBalances();
+      try {
+        await refreshBalances();
+      } catch (refr: any) {
+        console.warn('Balance refresh after deposit:', refr?.message || refr);
+      }
     } catch (err: any) {
       console.error(err);
+      if (historyHash) {
+        updateTransaction(historyHash, { status: 'failed' });
+      }
       setError(err.message || 'Deposit failed');
     } finally {
       setLoading(null);
@@ -165,6 +214,7 @@ export default function VaultPanel() {
     setError(null);
     setTxHash(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT) return;
+    let historyHash: string | null = null;
     try {
       setLoading('withdraw');
       const amountNative = BigInt(Math.floor(parseFloat(withdrawAmount) * TOKEN_FACTOR));
@@ -180,6 +230,9 @@ export default function VaultPanel() {
       const passphrase = getNetworkPassphrase();
       
       const signedWithdraw = await signTransaction(withdrawXdr, { networkPassphrase: passphrase });
+      if (signedWithdraw.error) {
+        throw new Error(signedWithdraw.error);
+      }
       const withdrawRes = await sendPreparedTransaction(signedWithdraw.signedTxXdr);
       
       if (withdrawRes.status !== 'PENDING') {
@@ -187,22 +240,40 @@ export default function VaultPanel() {
         throw new Error(`Withdraw failed: ${withdrawRes.status} ${withdrawRes.errorResult || ''}`);
       }
       
+      historyHash = withdrawRes.hash;
       addTransaction({
         id: withdrawRes.hash,
         hash: withdrawRes.hash,
         type: 'withdraw',
         status: 'pending',
         amount: withdrawAmount,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        explorerUrl: `${EXPLORER_URL}/tx/${withdrawRes.hash}`,
       });
       
-      await waitForTransaction(withdrawRes.hash);
-      
+      const withdrawFinal = await waitForTransaction(withdrawRes.hash);
+      const withdrawOk = isTxSuccess(withdrawFinal.status);
+      updateTransaction(withdrawRes.hash, {
+        status: withdrawOk ? 'success' : 'failed',
+      });
+      if (!withdrawOk) {
+        throw new Error(
+          `Withdraw did not succeed on-chain (${withdrawFinal.status || 'unknown'}). See explorer for details.`
+        );
+      }
+
       setTxHash(withdrawRes.hash);
       setWithdrawAmount('');
-      refreshBalances();
+      try {
+        await refreshBalances();
+      } catch (refr: any) {
+        console.warn('Balance refresh after withdraw:', refr?.message || refr);
+      }
     } catch (err: any) {
       console.error(err);
+      if (historyHash) {
+        updateTransaction(historyHash, { status: 'failed' });
+      }
       setError(err.message || 'Withdraw failed');
     } finally {
       setLoading(null);
@@ -213,6 +284,7 @@ export default function VaultPanel() {
     setError(null);
     setTxHash(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT) return;
+    let historyHash: string | null = null;
     try {
       setLoading('claim');
       const claimXdr = await buildContractCallXdr(
@@ -226,6 +298,9 @@ export default function VaultPanel() {
       const passphrase = getNetworkPassphrase();
       
       const signedClaim = await signTransaction(claimXdr, { networkPassphrase: passphrase });
+      if (signedClaim.error) {
+        throw new Error(signedClaim.error);
+      }
       const claimRes = await sendPreparedTransaction(signedClaim.signedTxXdr);
       
       if (claimRes.status !== 'PENDING') {
@@ -233,21 +308,39 @@ export default function VaultPanel() {
         throw new Error(`Claim failed: ${claimRes.status} ${claimRes.errorResult || ''}`);
       }
       
+      historyHash = claimRes.hash;
       addTransaction({
         id: claimRes.hash,
         hash: claimRes.hash,
         type: 'claim',
         status: 'pending',
         amount: pendingRewards,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        explorerUrl: `${EXPLORER_URL}/tx/${claimRes.hash}`,
       });
       
-      await waitForTransaction(claimRes.hash);
-      
+      const claimFinal = await waitForTransaction(claimRes.hash);
+      const claimOk = isTxSuccess(claimFinal.status);
+      updateTransaction(claimRes.hash, {
+        status: claimOk ? 'success' : 'failed',
+      });
+      if (!claimOk) {
+        throw new Error(
+          `Claim did not succeed on-chain (${claimFinal.status || 'unknown'}). See explorer for details.`
+        );
+      }
+
       setTxHash(claimRes.hash);
-      refreshBalances();
+      try {
+        await refreshBalances();
+      } catch (refr: any) {
+        console.warn('Balance refresh after claim:', refr?.message || refr);
+      }
     } catch (err: any) {
       console.error(err);
+      if (historyHash) {
+        updateTransaction(historyHash, { status: 'failed' });
+      }
       setError(err.message || 'Claim failed');
     } finally {
       setLoading(null);
@@ -339,6 +432,47 @@ export default function VaultPanel() {
               'Deposit Now'
             )}
           </button>
+        </div>
+        <p className="text-[10px] leading-relaxed text-slate-500">
+          Deposits credit the <span className="font-semibold text-slate-400">connected wallet</span> only (vault
+          requires your signature). To use another Stellar address, switch accounts in Freighter.
+        </p>
+        <div className="rounded-xl border border-slate-700/40 bg-slate-950/40 p-3 space-y-2">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+            Protocol contract IDs (copy for explorers / env)
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="min-w-0 flex-1">
+              <span className="text-[9px] text-slate-500">SST token</span>
+              <div className="flex items-center gap-1.5">
+                <code className="truncate text-[10px] text-indigo-300/90">{CONTRACTS.TOKEN}</code>
+                <button
+                  type="button"
+                  aria-label="Copy token contract id"
+                  className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  onClick={() => copyText('token', CONTRACTS.TOKEN)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                {copiedField === 'token' && <span className="text-[9px] text-emerald-400">Copied</span>}
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[9px] text-slate-500">Vault</span>
+              <div className="flex items-center gap-1.5">
+                <code className="truncate text-[10px] text-pink-300/90">{CONTRACTS.VAULT}</code>
+                <button
+                  type="button"
+                  aria-label="Copy vault contract id"
+                  className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  onClick={() => copyText('vault', CONTRACTS.VAULT)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                {copiedField === 'vault' && <span className="text-[9px] text-emerald-400">Copied</span>}
+              </div>
+            </div>
+          </div>
         </div>
         {walletTokenValue <= 0 && (
           <button
