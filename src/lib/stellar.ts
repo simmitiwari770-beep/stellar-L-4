@@ -289,16 +289,37 @@ export async function getRecentEvents(contractIds: string[], limit = 50, startLe
         ? Math.max(1, startLedger)
         : Math.max(1, ledger.sequence - 10_000);
 
-    const response = await server.getEvents({
-      startLedger: effectiveStartLedger,
-      filters: [
-        {
-          type: 'contract',
-          contractIds: contractIds,
-        },
-      ],
-      limit,
-    });
+    const filters = [
+      {
+        type: 'contract' as const,
+        contractIds,
+      },
+    ];
+
+    let response: Awaited<ReturnType<typeof server.getEvents>>;
+    try {
+      response = await server.getEvents({
+        startLedger: effectiveStartLedger,
+        filters,
+        limit,
+      });
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      const rangeMatch = message.match(/ledger range:\s*(\d+)\s*-\s*(\d+)/i);
+      if (!rangeMatch) {
+        throw error;
+      }
+
+      const minLedger = Number(rangeMatch[1]);
+      const maxLedger = Number(rangeMatch[2]);
+      const fallbackStartLedger = Math.min(Math.max(minLedger, effectiveStartLedger), maxLedger);
+
+      response = await server.getEvents({
+        startLedger: fallbackStartLedger,
+        filters,
+        limit,
+      });
+    }
 
     const events = response.events
       .map((e) => {
