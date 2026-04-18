@@ -36,9 +36,10 @@ body {
 /* ── Gradient background ──────────────────────────────────────── */
 .bg-gradient-main {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 60%),
-    #030712;
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+    #020617;
 }
 
 /* ── Glass morphism ───────────────────────────────────────────── */
