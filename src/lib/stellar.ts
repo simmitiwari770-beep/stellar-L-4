@@ -145,39 +145,11 @@ export async function getTokenDecimals(contractId: string): Promise<number> {
   }
 }
 
-// ─── Pool helpers ─────────────────────────────────────────────────────────────
-export interface PoolReserves {
-  reserve_a: string;
-  reserve_b: string;
-  total_lp: string;
-}
-
-export async function getPoolReserves(): Promise<PoolReserves> {
-  if (!CONTRACTS.POOL) return { reserve_a: '0', reserve_b: '0', total_lp: '0' };
-
-  const cacheKey = 'pool:reserves';
-  const cached = fromCache<PoolReserves>(cacheKey);
-  if (cached) return cached;
-
+// ─── Vault helpers ─────────────────────────────────────────────────────────────
+export async function getVaultBalance(walletAddress: string): Promise<string> {
+  if (!CONTRACTS.VAULT) return '0';
   try {
-    const result = await callContractView(CONTRACTS.POOL, 'get_reserves', []);
-    const raw = scValToNative(result) as { reserve_a: bigint; reserve_b: bigint; total_lp: bigint };
-    const reserves = {
-      reserve_a: (Number(raw.reserve_a) / TOKEN_FACTOR).toFixed(4),
-      reserve_b: (Number(raw.reserve_b) / TOKEN_FACTOR).toFixed(4),
-      total_lp: (Number(raw.total_lp) / TOKEN_FACTOR).toFixed(4),
-    };
-    toCache(cacheKey, reserves);
-    return reserves;
-  } catch {
-    return { reserve_a: '0', reserve_b: '0', total_lp: '0' };
-  }
-}
-
-export async function getLpBalance(walletAddress: string): Promise<string> {
-  if (!CONTRACTS.POOL) return '0';
-  try {
-    const result = await callContractView(CONTRACTS.POOL, 'get_lp_balance', [
+    const result = await callContractView(CONTRACTS.VAULT, 'get_balance', [
       new Address(walletAddress).toScVal(),
     ]);
     const raw = scValToNative(result) as bigint;
@@ -187,18 +159,16 @@ export async function getLpBalance(walletAddress: string): Promise<string> {
   }
 }
 
-export async function getSwapQuote(buyB: boolean, amountIn: number): Promise<number> {
-  if (!CONTRACTS.POOL || amountIn <= 0) return 0;
+export async function getPendingRewards(walletAddress: string): Promise<string> {
+  if (!CONTRACTS.VAULT) return '0';
   try {
-    const rawIn = BigInt(Math.floor(amountIn * TOKEN_FACTOR));
-    const result = await callContractView(CONTRACTS.POOL, 'quote', [
-      xdr.ScVal.scvBool(buyB),
-      nativeToScVal(rawIn, { type: 'i128' }),
+    const result = await callContractView(CONTRACTS.VAULT, 'get_pending_rewards', [
+      new Address(walletAddress).toScVal(),
     ]);
     const raw = scValToNative(result) as bigint;
-    return Number(raw) / TOKEN_FACTOR;
+    return (Number(raw) / TOKEN_FACTOR).toFixed(4);
   } catch {
-    return 0;
+    return '0';
   }
 }
 

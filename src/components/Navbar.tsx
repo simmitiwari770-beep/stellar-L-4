@@ -32,7 +32,7 @@ export default function Navbar() {
             <span className="text-lg">⚡</span>
           </div>
           <div>
-            <span className="gradient-text text-xl font-bold">SoroSwap</span>
+            <span className="gradient-text text-xl font-bold">SoroVault</span>
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-green-400 pulse-glow" />
               <span className="text-xs text-slate-400">{NETWORK}</span>

@@ -7,18 +7,18 @@ import { formatDistanceToNow } from 'date-fns';
 const TYPE_ICONS: Record<string, string> = {
   mint: '🌱',
   transfer: '📤',
-  swap: '🔄',
-  add_liquidity: '💧',
-  remove_liquidity: '💸',
+  deposit: '📥',
+  withdraw: '📤',
+  claim: '✨',
   approve: '✅',
 };
 
 const TYPE_LABELS: Record<string, string> = {
   mint: 'Mint',
   transfer: 'Transfer',
-  swap: 'Swap',
-  add_liquidity: 'Add Liquidity',
-  remove_liquidity: 'Remove Liquidity',
+  deposit: 'Deposit',
+  withdraw: 'Withdraw',
+  claim: 'Claim Rewards',
   approve: 'Approve',
 };
 

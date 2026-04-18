@@ -20,14 +20,14 @@ echo ""
 echo "▶ Using pre-compiled contracts..."
 
 TOKEN_WASM="target/wasm32-unknown-unknown/release/soroswap_token.optimized.wasm"
-POOL_WASM="target/wasm32-unknown-unknown/release/soroswap_pool.optimized.wasm"
+VAULT_WASM="target/wasm32-unknown-unknown/release/soroswap_vault.optimized.wasm"
 
 if [ ! -f "$TOKEN_WASM" ]; then
   echo "ERROR: Token WASM not found at $TOKEN_WASM"
   exit 1
 fi
-if [ ! -f "$POOL_WASM" ]; then
-  echo "ERROR: Pool WASM not found at $POOL_WASM"
+if [ ! -f "$VAULT_WASM" ]; then
+  echo "ERROR: Vault WASM not found at $VAULT_WASM"
   exit 1
 fi
 
@@ -61,29 +61,29 @@ TOKEN_HASH=$(stellar contract upload \
 echo "  Token WASM hash: $TOKEN_HASH"
 
 echo ""
-echo "▶ Uploading Pool WASM..."
-POOL_HASH=$(stellar contract upload \
-  --wasm "$POOL_WASM" \
+echo "▶ Uploading Vault WASM..."
+VAULT_HASH=$(stellar contract upload \
+  --wasm "$VAULT_WASM" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
   --network-passphrase "$PASS")
-echo "  Pool WASM hash: $POOL_HASH"
+echo "  Vault WASM hash: $VAULT_HASH"
 
-# ── Deploy Token A ────────────────────────────────────────────
+# ── Deploy Token ────────────────────────────────────────────
 echo ""
-echo "▶ Deploying Token A (SST)..."
-TOKEN_A=$(stellar contract deploy \
+echo "▶ Deploying Token (SST)..."
+TOKEN_CONTRACT=$(stellar contract deploy \
   --wasm-hash "$TOKEN_HASH" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
   --network-passphrase "$PASS")
-echo "  Token A contract: $TOKEN_A"
+echo "  Token contract: $TOKEN_CONTRACT"
 
-# Initialize Token A
+# Initialize Token
 stellar contract invoke \
-  --id "$TOKEN_A" \
+  --id "$TOKEN_CONTRACT" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
@@ -91,56 +91,32 @@ stellar contract invoke \
   -- initialize \
   --admin "$ADMIN" \
   --decimal 7 \
-  --name "SoroSwap Token" \
+  --name "Stellar Custom Token" \
   --symbol SST
-echo "  ✅ Token A initialized"
+echo "  ✅ Token initialized"
 
-# ── Deploy Token B ────────────────────────────────────────────
+# ── Deploy Vault ───────────────────────────────────────────────
 echo ""
-echo "▶ Deploying Token B (USDC)..."
-TOKEN_B=$(stellar contract deploy \
-  --wasm-hash "$TOKEN_HASH" \
+echo "▶ Deploying Vault..."
+VAULT_CONTRACT=$(stellar contract deploy \
+  --wasm-hash "$VAULT_HASH" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
   --network-passphrase "$PASS")
-echo "  Token B contract: $TOKEN_B"
+echo "  Vault contract: $VAULT_CONTRACT"
 
 stellar contract invoke \
-  --id "$TOKEN_B" \
+  --id "$VAULT_CONTRACT" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
   --network-passphrase "$PASS" \
   -- initialize \
-  --admin "$ADMIN" \
-  --decimal 7 \
-  --name "USD Coin (testnet)" \
-  --symbol USDC
-echo "  ✅ Token B initialized"
+  --token "$TOKEN_CONTRACT" \
+  --reward_rate 10  # 10 tokens per 10000 per second
 
-# ── Deploy Pool ───────────────────────────────────────────────
-echo ""
-echo "▶ Deploying Liquidity Pool..."
-POOL=$(stellar contract deploy \
-  --wasm-hash "$POOL_HASH" \
-  --source "$IDENTITY" \
-  --network "$NETWORK" \
-  --rpc-url "$RPC_URL" \
-  --network-passphrase "$PASS")
-echo "  Pool contract: $POOL"
-
-stellar contract invoke \
-  --id "$POOL" \
-  --source "$IDENTITY" \
-  --network "$NETWORK" \
-  --rpc-url "$RPC_URL" \
-  --network-passphrase "$PASS" \
-  -- initialize \
-  --token-a "$TOKEN_A" \
-  --token-b "$TOKEN_B" \
-  --fee-to "$ADMIN"
-echo "  ✅ Pool initialized with Token A=$TOKEN_A, Token B=$TOKEN_B"
+echo "  ✅ Vault initialized with Token=$TOKEN_CONTRACT"
 
 # ── Mint initial tokens ───────────────────────────────────────
 echo ""
@@ -148,21 +124,23 @@ echo "▶ Minting initial tokens to admin..."
 MINT_AMOUNT=1000000000000  # 100,000 tokens (7 decimals)
 
 stellar contract invoke \
-  --id "$TOKEN_A" \
+  --id "$TOKEN_CONTRACT" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
   --network-passphrase "$PASS" \
   -- mint --to "$ADMIN" --amount "$MINT_AMOUNT"
 
+# Mint some to Vault for paying rewards
 stellar contract invoke \
-  --id "$TOKEN_B" \
+  --id "$TOKEN_CONTRACT" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   --rpc-url "$RPC_URL" \
   --network-passphrase "$PASS" \
-  -- mint --to "$ADMIN" --amount "$MINT_AMOUNT"
-echo "  ✅ Minted 100,000 SST and 100,000 USDC to admin"
+  -- mint --to "$VAULT_CONTRACT" --amount "$MINT_AMOUNT"
+
+echo "  ✅ Minted 100,000 SST to admin and Vault"
 
 # ── Summary ───────────────────────────────────────────────────
 echo ""
@@ -171,17 +149,15 @@ echo "  ✅ DEPLOYMENT COMPLETE"
 echo "═══════════════════════════════════════════════════════"
 echo ""
 echo "  Admin address: $ADMIN"
-echo "  Token A (SST): $TOKEN_A"
-echo "  Token B (USDC): $TOKEN_B"
-echo "  Pool contract: $POOL"
+echo "  Token Contract: $TOKEN_CONTRACT"
+echo "  Vault contract: $VAULT_CONTRACT"
 echo ""
 echo "  Add to frontend/.env.local:"
-echo "  NEXT_PUBLIC_TOKEN_A_CONTRACT=$TOKEN_A"
-echo "  NEXT_PUBLIC_TOKEN_B_CONTRACT=$TOKEN_B"
-echo "  NEXT_PUBLIC_POOL_CONTRACT=$POOL"
+echo "  NEXT_PUBLIC_TOKEN_CONTRACT=$TOKEN_CONTRACT"
+echo "  NEXT_PUBLIC_VAULT_CONTRACT=$VAULT_CONTRACT"
 echo ""
 echo "  View on Explorer:"
-echo "  https://stellar.expert/explorer/testnet/contract/$POOL"
+echo "  https://stellar.expert/explorer/testnet/contract/$VAULT_CONTRACT"
 echo "═══════════════════════════════════════════════════════"
 
 # ── Write .env.local ──────────────────────────────────────────
@@ -190,9 +166,8 @@ cat > "$ENV_FILE" << EOF
 NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
 NEXT_PUBLIC_RPC_URL=https://soroban-testnet.stellar.org
 NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
-NEXT_PUBLIC_TOKEN_A_CONTRACT=$TOKEN_A
-NEXT_PUBLIC_TOKEN_B_CONTRACT=$TOKEN_B
-NEXT_PUBLIC_POOL_CONTRACT=$POOL
+NEXT_PUBLIC_TOKEN_CONTRACT=$TOKEN_CONTRACT
+NEXT_PUBLIC_VAULT_CONTRACT=$VAULT_CONTRACT
 EOF
 echo ""
 echo "  ✅ Written to $ENV_FILE"

@@ -18,9 +18,8 @@ export const NETWORKS = {
 } as const;
 
 export const CONTRACTS = {
-  TOKEN_A: process.env.NEXT_PUBLIC_TOKEN_A_CONTRACT || '',
-  TOKEN_B: process.env.NEXT_PUBLIC_TOKEN_B_CONTRACT || '',
-  POOL: process.env.NEXT_PUBLIC_POOL_CONTRACT || '',
+  TOKEN: process.env.NEXT_PUBLIC_TOKEN_CONTRACT || '',
+  VAULT: process.env.NEXT_PUBLIC_VAULT_CONTRACT || '',
 };
 
 export const TOKEN_DECIMALS = 7;

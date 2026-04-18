@@ -8,10 +8,11 @@ export default function EventFeed() {
 
   const getEventStyle = (type: string) => {
     const t = type.toLowerCase();
-    if (t.includes('swap')) return { icon: '🔄', color: 'text-pink-400', bg: 'bg-pink-400/10', border: 'border-pink-500/20' };
+    if (t.includes('deposit')) return { icon: '📥', color: 'text-green-400', bg: 'bg-green-400/10', border: 'border-green-500/20' };
+    if (t.includes('withdraw')) return { icon: '📤', color: 'text-pink-400', bg: 'bg-pink-400/10', border: 'border-pink-500/20' };
+    if (t.includes('claim')) return { icon: '✨', color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-500/20' };
     if (t.includes('mint')) return { icon: '🌱', color: 'text-green-400', bg: 'bg-green-400/10', border: 'border-green-500/20' };
-    if (t.includes('transfer')) return { icon: '📤', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-500/20' };
-    if (t.includes('liq')) return { icon: '💧', color: 'text-cyan-400', bg: 'bg-cyan-400/10', border: 'border-cyan-500/20' };
+    if (t.includes('transfer')) return { icon: '💸', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-500/20' };
     if (t.includes('approve')) return { icon: '✅', color: 'text-indigo-400', bg: 'bg-indigo-400/10', border: 'border-indigo-500/20' };
     if (t.includes('init')) return { icon: '⚙️', color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-500/20' };
     return { icon: '⚡', color: 'text-slate-400', bg: 'bg-slate-400/10', border: 'border-slate-500/20' };

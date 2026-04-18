@@ -10,17 +10,16 @@ import {
 } from '@/lib/freighter';
 import {
   getTokenBalance,
-  getLpBalance,
-  getPoolReserves,
+  getVaultBalance,
+  getPendingRewards,
   getLatestLedger,
-  type PoolReserves,
 } from '@/lib/stellar';
 import { CONTRACTS, POLLING_INTERVAL_MS } from '@/lib/config';
 
 export interface TxRecord {
   id: string;
   hash: string;
-  type: 'mint' | 'transfer' | 'swap' | 'add_liquidity' | 'remove_liquidity' | 'approve';
+  type: 'mint' | 'transfer' | 'deposit' | 'withdraw' | 'claim' | 'approve';
   status: 'pending' | 'success' | 'failed';
   amount?: string;
   timestamp: number;
@@ -33,10 +32,9 @@ interface WalletContextType {
   network: string | null;
   freighterInstalled: boolean;
   isConnecting: boolean;
-  tokenABalance: string;
-  tokenBBalance: string;
-  lpBalance: string;
-  poolReserves: PoolReserves;
+  tokenBalance: string;
+  vaultBalance: string;
+  pendingRewards: string;
   transactions: TxRecord[];
   ledger: number;
   connect: () => Promise<void>;
@@ -54,14 +52,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [network, setNetwork] = useState<string | null>(null);
   const [freighterInstalled, setFreighterInstalled] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [tokenABalance, setTokenABalance] = useState('0.0000');
-  const [tokenBBalance, setTokenBBalance] = useState('0.0000');
-  const [lpBalance, setLpBalance] = useState('0.0000');
-  const [poolReserves, setPoolReserves] = useState<PoolReserves>({
-    reserve_a: '0',
-    reserve_b: '0',
-    total_lp: '0',
-  });
+  const [tokenBalance, setTokenBalance] = useState('0.0000');
+  const [vaultBalance, setVaultBalance] = useState('0.0000');
+  const [pendingRewards, setPendingRewards] = useState('0.0000');
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [ledger, setLedger] = useState(0);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,17 +91,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const refreshBalances = useCallback(async () => {
     if (!publicKey) return;
     try {
-      const [a, b, lp, reserves, lat] = await Promise.all([
-        CONTRACTS.TOKEN_A ? getTokenBalance(CONTRACTS.TOKEN_A, publicKey) : Promise.resolve('0.0000'),
-        CONTRACTS.TOKEN_B ? getTokenBalance(CONTRACTS.TOKEN_B, publicKey) : Promise.resolve('0.0000'),
-        getLpBalance(publicKey),
-        getPoolReserves(),
+      const [t, v, r, lat] = await Promise.all([
+        CONTRACTS.TOKEN ? getTokenBalance(CONTRACTS.TOKEN, publicKey) : Promise.resolve('0.0000'),
+        getVaultBalance(publicKey),
+        getPendingRewards(publicKey),
         getLatestLedger(),
       ]);
-      setTokenABalance(a);
-      setTokenBBalance(b);
-      setLpBalance(lp);
-      setPoolReserves(reserves);
+      setTokenBalance(t);
+      setVaultBalance(v);
+      setPendingRewards(r);
       setLedger(lat.sequence);
     } catch (e: any) {
       console.warn('Balance refresh error:', e?.message || e);
@@ -144,9 +135,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const disconnect = () => {
     setConnected(false);
     setPublicKey(null);
-    setTokenABalance('0.0000');
-    setTokenBBalance('0.0000');
-    setLpBalance('0.0000');
+    setTokenBalance('0.0000');
+    setVaultBalance('0.0000');
+    setPendingRewards('0.0000');
   };
 
   const addTransaction = (tx: TxRecord) => {
@@ -167,10 +158,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         network,
         freighterInstalled,
         isConnecting,
-        tokenABalance,
-        tokenBBalance,
-        lpBalance,
-        poolReserves,
+        tokenBalance,
+        vaultBalance,
+        pendingRewards,
         transactions,
         ledger,
         connect,

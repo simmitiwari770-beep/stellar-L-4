@@ -48,7 +48,7 @@ jobs:
       - name: Optimize WASMs for Soroban
         run: |
           stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_token.wasm
-          stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_pool.wasm
+          stellar contract optimize --wasm target/wasm32-unknown-unknown/release/soroswap_vault.wasm
           echo "--- Optimized files ---"
           ls -la target/wasm32-unknown-unknown/release/*.optimized.wasm
 
@@ -85,9 +85,8 @@ jobs:
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
           NEXT_PUBLIC_RPC_URL: https://soroban-testnet.stellar.org
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
-          NEXT_PUBLIC_TOKEN_A_CONTRACT: ${{ secrets.TOKEN_A_CONTRACT }}
-          NEXT_PUBLIC_TOKEN_B_CONTRACT: ${{ secrets.TOKEN_B_CONTRACT }}
-          NEXT_PUBLIC_POOL_CONTRACT: ${{ secrets.POOL_CONTRACT }}
+          NEXT_PUBLIC_TOKEN_CONTRACT: ${{ secrets.TOKEN_CONTRACT }}
+          NEXT_PUBLIC_VAULT_CONTRACT: ${{ secrets.VAULT_CONTRACT }}
 
       - name: Run frontend tests
         run: npm run test -- --passWithNoTests

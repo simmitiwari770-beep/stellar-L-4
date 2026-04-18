@@ -42,10 +42,6 @@ impl SoroswapToken {
                 symbol,
             },
         );
-        // Transfer fee: 0.3% (30 basis points)
-        env.storage().instance().set(&DataKey::TransferFee, &30u32);
-        // Fee recipient is admin initially
-        env.storage().instance().set(&DataKey::FeeRecipient, &admin);
     }
 
     pub fn mint(env: Env, to: Address, amount: i128) {
@@ -61,32 +57,6 @@ impl SoroswapToken {
         admin.require_auth();
         admin::write_administrator(&env, &new_admin);
         event::set_admin(&env, admin, new_admin);
-    }
-
-    pub fn set_fee(env: Env, fee_bps: u32) {
-        let admin = admin::read_administrator(&env);
-        admin.require_auth();
-        if fee_bps > 1000 {
-            panic!("fee cannot exceed 10%");
-        }
-        env.storage()
-            .instance()
-            .set(&DataKey::TransferFee, &fee_bps);
-    }
-
-    pub fn set_fee_recipient(env: Env, recipient: Address) {
-        let admin = admin::read_administrator(&env);
-        admin.require_auth();
-        env.storage()
-            .instance()
-            .set(&DataKey::FeeRecipient, &recipient);
-    }
-
-    pub fn get_fee_bps(env: Env) -> u32 {
-        env.storage()
-            .instance()
-            .get::<DataKey, u32>(&DataKey::TransferFee)
-            .unwrap_or(0)
     }
 
     pub fn admin(env: Env) -> Address {
@@ -121,38 +91,8 @@ impl token::Interface for SoroswapToken {
         from.require_auth();
         check_nonnegative_amount(amount);
 
-        // Apply transfer fee
-        let fee_bps = env
-            .storage()
-            .instance()
-            .get::<DataKey, u32>(&DataKey::TransferFee)
-            .unwrap_or(0);
-
-        let fee_amount = if fee_bps > 0 {
-            (amount * fee_bps as i128) / 10000
-        } else {
-            0
-        };
-
-        let net_amount = amount - fee_amount;
-
         balance::spend_balance(&env, from.clone(), amount);
-        balance::receive_balance(&env, to.clone(), net_amount);
-
-        // Send fee to fee recipient
-        if fee_amount > 0 {
-            let fee_recipient = env
-                .storage()
-                .instance()
-                .get::<DataKey, Address>(&DataKey::FeeRecipient)
-                .unwrap();
-            balance::receive_balance(&env, fee_recipient.clone(), fee_amount);
-            // Emit fee event
-            env.events().publish(
-                (FEE_TOPIC, symbol_short!("transfer")),
-                (from.clone(), fee_recipient, fee_amount),
-            );
-        }
+        balance::receive_balance(&env, to.clone(), amount);
 
         event::transfer(&env, from, to, amount);
     }
@@ -162,31 +102,8 @@ impl token::Interface for SoroswapToken {
         check_nonnegative_amount(amount);
         allowance::spend_allowance(&env, from.clone(), spender, amount);
 
-        let fee_bps = env
-            .storage()
-            .instance()
-            .get::<DataKey, u32>(&DataKey::TransferFee)
-            .unwrap_or(0);
-
-        let fee_amount = if fee_bps > 0 {
-            (amount * fee_bps as i128) / 10000
-        } else {
-            0
-        };
-
-        let net_amount = amount - fee_amount;
-
         balance::spend_balance(&env, from.clone(), amount);
-        balance::receive_balance(&env, to.clone(), net_amount);
-
-        if fee_amount > 0 {
-            let fee_recipient = env
-                .storage()
-                .instance()
-                .get::<DataKey, Address>(&DataKey::FeeRecipient)
-                .unwrap();
-            balance::receive_balance(&env, fee_recipient.clone(), fee_amount);
-        }
+        balance::receive_balance(&env, to.clone(), amount);
 
         event::transfer(&env, from, to, amount);
     }
