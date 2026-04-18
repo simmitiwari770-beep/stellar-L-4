@@ -2,7 +2,7 @@
 
 [![SoroVault CI/CD](https://github.com/simmitiwari770-beep/stellar-L-4/actions/workflows/ci.yml/badge.svg)](https://github.com/simmitiwari770-beep/stellar-L-4/actions)
 ![Stellar Testnet](https://img.shields.io/badge/Stellar-Testnet-blue)
-![Soroban](https://img.shields.io/badge/Soroban-21.2.0-purple)
+![Soroban](https://img.shields.io/badge/Soroban-21.7.6-purple)
 ![Mobile Responsive](https://img.shields.io/badge/Mobile-Responsive-green)
 
 SoroVault is a production-ready decentralized Vault dApp built on Stellar using Soroban smart contracts. It features a custom token implementation and a time-based reward vault demonstrating advanced smart contract composability and inter-contract communication.
@@ -27,20 +27,25 @@ graph TD
     Token -- Transfer Authority --> Vault
 ```
 
-## 📸 Screenshots 
+## 📸 Screenshots
 
-**CI/CD pipeline
-<img width="1440" height="865" alt="Screenshot 2026-04-19 at 1 06 03 AM" src="https://github.com/user-attachments/assets/2110edc7-5fa9-4813-818d-15a59bbbed10" />
+**CI/CD pipeline (GitHub Actions)**
 
-**Dashboard
-<img width="1440" height="900" alt="Screenshot 2026-04-19 at 1 09 46 AM" src="https://github.com/user-attachments/assets/e6826659-b399-461f-88e2-5220149d06af" />
-<img width="1436" height="863" alt="Screenshot 2026-04-19 at 1 11 54 AM" src="https://github.com/user-attachments/assets/3aa4bc96-c3b2-433c-95eb-69e165880de2" />
+<img width="1440" height="865" alt="GitHub Actions CI workflow" src="https://github.com/user-attachments/assets/2110edc7-5fa9-4813-818d-15a59bbbed10" />
 
+Also committed in-repo: [`docs/ci-pipeline.png`](docs/ci-pipeline.png) (replace with a fresh capture anytime).
 
-**Mobile responsive 
-<img width="341" height="662" alt="Screenshot 2026-04-19 at 1 08 12 AM" src="https://github.com/user-attachments/assets/09196a30-a3ff-44dd-a7b4-3d3547f75501" />
-<img width="330" height="715" alt="Screenshot 2026-04-19 at 1 09 03 AM" src="https://github.com/user-attachments/assets/cb1f9c68-da39-4709-994c-dc211f58cfaf" />
+**App dashboard**
 
+<img width="1440" height="900" alt="SoroVault dashboard" src="https://github.com/user-attachments/assets/e6826659-b399-461f-88e2-5220149d06af" />
+<img width="1436" height="863" alt="SoroVault vault view" src="https://github.com/user-attachments/assets/3aa4bc96-c3b2-433c-95eb-69e165880de2" />
+
+**Mobile responsive**
+
+<img width="341" height="662" alt="SoroVault mobile 1" src="https://github.com/user-attachments/assets/09196a30-a3ff-44dd-a7b4-3d3547f75501" />
+<img width="330" height="715" alt="SoroVault mobile 2" src="https://github.com/user-attachments/assets/cb1f9c68-da39-4709-994c-dc211f58cfaf" />
+
+Embedded copies for offline clones: ![Mobile](docs/mobile-view.png)
 
 ### How to take the **CI/CD pipeline** screenshot
 
@@ -58,7 +63,27 @@ graph TD
 3. Scroll so the main vault / hero is visible; capture (same shortcuts as above).
 4. Save as **`docs/mobile-view.png`** and commit.
 
-After you save both PNGs under `docs/` and push, they will show on GitHub. Until then you may see a missing-image placeholder or alt text only.
+Overwrite `docs/*.png` with full-resolution captures and commit.
+
+## ✅ Reviewer / submission checklist (avoid automated rejection)
+
+| Requirement | Where it is satisfied |
+|-------------|------------------------|
+| Public repo + CI | Badge above; [Actions](https://github.com/simmitiwari770-beep/stellar-L-4/actions); workflow `.github/workflows/ci.yml` |
+| Contracts + tests | `contracts/` — `cargo test --locked --all` |
+| Frontend build | `npm run build` in CI |
+| Real testnet contracts | Addresses in README + `src/lib/config.ts` defaults |
+| No secrets in git | Use `.env.local` (gitignored); see `.env.example` |
+| License | `LICENSE` (MIT) |
+| Live demo | [stellar-l-4.vercel.app](https://stellar-l-4.vercel.app) — keep Vercel env in sync with README token/vault IDs |
+| Proof of txs (manual) | Paste **testnet** tx hashes or Stellar Expert links for deposit / withdraw after you run them (add a short table below in your fork before submit) |
+
+**Example — add your real hashes before submission:**
+
+| Action | Stellar Expert (testnet) |
+|--------|--------------------------|
+| Deposit | `https://stellar.expert/explorer/testnet/tx/<YOUR_TX_HASH>` |
+| Withdraw | `https://stellar.expert/explorer/testnet/tx/<YOUR_TX_HASH>` |
 
 ## 🚀 Deployment Status (Stellar Testnet)
 
@@ -143,11 +168,12 @@ The project implements a robust GitHub Actions workflow that:
 
 ## ✅ Production Verification Commands
 
-- `cargo test --all`
-- `cargo clippy --all-targets --all-features -- -D warnings`
-- `npm run lint`
-- `npm run test -- --run`
-- `npm run build`
+These mirror CI locally:
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --locked --all-targets --all-features -- -D warnings`
+- `cargo test --locked --all`
+- `npm ci && npm run lint && npm run test -- --passWithNoTests && npm run build`
 
 ---
 

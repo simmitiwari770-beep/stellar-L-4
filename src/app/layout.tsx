@@ -6,17 +6,17 @@ import { WalletProvider } from '@/contexts/WalletContext';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'SoroSwap — Stellar DeFi Protocol',
+  title: 'SoroVault — Stellar Soroban Vault',
   description:
-    'A production-grade DeFi application built on Stellar Soroban. Swap tokens, provide liquidity, and earn fees — all on-chain.',
-  keywords: ['Stellar', 'Soroban', 'DeFi', 'AMM', 'Liquidity Pool', 'Web3', 'Blockchain'],
+    'Production Soroban vault dApp on Stellar testnet: SST token, yield vault, Freighter wallet, real on-chain deposits and withdrawals.',
+  keywords: ['Stellar', 'Soroban', 'Vault', 'DeFi', 'SST', 'Freighter', 'Web3', 'Blockchain'],
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
   },
   openGraph: {
-    title: 'SoroSwap — Stellar DeFi Protocol',
-    description: 'Production DeFi on Stellar Soroban — real contracts, real swaps.',
+    title: 'SoroVault — Stellar Soroban Vault',
+    description: 'Real Soroban contracts: token + vault with inter-contract calls on Stellar testnet.',
     type: 'website',
   },
 };
