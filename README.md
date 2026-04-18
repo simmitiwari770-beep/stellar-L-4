@@ -27,22 +27,20 @@ graph TD
     Token -- Transfer Authority --> Vault
 ```
 
-## 📸 Screenshots (CI/CD + mobile)
+## 📸 Screenshots 
 
-Add these files under the `docs/` folder, then they render automatically below. **Exact filenames** (so links don’t break):
+**CI/CD pipeline
+<img width="1440" height="865" alt="Screenshot 2026-04-19 at 1 06 03 AM" src="https://github.com/user-attachments/assets/2110edc7-5fa9-4813-818d-15a59bbbed10" />
 
-| File | What it should show |
-|------|---------------------|
-| `docs/ci-pipeline.png` | GitHub **Actions** → latest **green** run → workflow graph / job list (Contracts, Frontend, optional Deploy) |
-| `docs/mobile-view.png` | Live app on a **phone-sized** viewport (see steps below) |
+**Dashboard
+<img width="1440" height="900" alt="Screenshot 2026-04-19 at 1 09 46 AM" src="https://github.com/user-attachments/assets/e6826659-b399-461f-88e2-5220149d06af" />
+<img width="1436" height="863" alt="Screenshot 2026-04-19 at 1 11 54 AM" src="https://github.com/user-attachments/assets/3aa4bc96-c3b2-433c-95eb-69e165880de2" />
 
-**CI/CD (GitHub Actions — add file `docs/ci-pipeline.png`):**
 
-![GitHub Actions CI/CD workflow](docs/ci-pipeline.png)
+**Mobile responsive 
+<img width="341" height="662" alt="Screenshot 2026-04-19 at 1 08 12 AM" src="https://github.com/user-attachments/assets/09196a30-a3ff-44dd-a7b4-3d3547f75501" />
+<img width="330" height="715" alt="Screenshot 2026-04-19 at 1 09 03 AM" src="https://github.com/user-attachments/assets/cb1f9c68-da39-4709-994c-dc211f58cfaf" />
 
-**Mobile responsive (add file `docs/mobile-view.png`):**
-
-![SoroVault mobile view](docs/mobile-view.png)
 
 ### How to take the **CI/CD pipeline** screenshot
 
