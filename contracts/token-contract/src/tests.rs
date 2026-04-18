@@ -1,4 +1,4 @@
-#![cfg(test)]
+
 #![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 
@@ -6,7 +6,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 use crate::{SoroswapToken, SoroswapTokenClient};
 
-fn create_token<'a>(env: &'a Env) -> (SoroswapTokenClient<'a>, Address) {
+fn create_token(env: &Env) -> (SoroswapTokenClient<'_>, Address) {
     let admin = Address::generate(env);
     let contract_id = env.register_contract(None, SoroswapToken);
     let client = SoroswapTokenClient::new(env, &contract_id);
