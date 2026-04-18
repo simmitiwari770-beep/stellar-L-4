@@ -10,7 +10,7 @@ mod event;
 mod metadata;
 mod storage_types;
 
-use storage_types::DataKey;
+
 
 pub const MINT_TOPIC: Symbol = symbol_short!("MINT");
 pub const BURN_TOPIC: Symbol = symbol_short!("BURN");
