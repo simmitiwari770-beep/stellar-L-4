@@ -8,12 +8,10 @@ import { Address, nativeToScVal } from '@stellar/stellar-sdk';
 import { CONTRACTS, TOKEN_FACTOR, EXPLORER_URL } from '@/lib/config';
 import { 
   buildContractCallXdr,
-  buildMultiCallXdr,
   sendPreparedTransaction,
   waitForTransaction,
   getLatestLedger,
   getNetworkPassphrase,
-  type CallParams
 } from '@/lib/stellar';
 
 export default function VaultPanel() {
@@ -39,33 +37,29 @@ export default function VaultPanel() {
         throw new Error('Contract addresses not configured');
       }
 
-      console.log('Building atomic Approve + Deposit transaction...');
-      const calls: CallParams[] = [
-        {
-          contractId: CONTRACTS.TOKEN,
-          method: 'approve',
-          args: [
-            new Address(publicKey).toScVal(),
-            new Address(CONTRACTS.VAULT).toScVal(),
-            nativeToScVal(amountNative, { type: 'i128' }),
-            nativeToScVal(expirationLedger, { type: 'u32' }),
-          ]
-        },
-        {
-          contractId: CONTRACTS.VAULT,
-          method: 'deposit',
-          args: [
-            new Address(publicKey).toScVal(),
-            nativeToScVal(amountNative, { type: 'i128' }),
-          ]
-        }
-      ];
-
-      const multiCallXdr = await buildMultiCallXdr(publicKey, calls);
       const passphrase = getNetworkPassphrase();
-      
-      const signedMulti = await signTransaction(multiCallXdr, { networkPassphrase: passphrase });
-      const depositRes = await sendPreparedTransaction(signedMulti.signedTxXdr);
+
+      // Soroban transaction simulation currently expects one contract operation.
+      // Execute approve and deposit as two deterministic sequential transactions.
+      const approveXdr = await buildContractCallXdr(publicKey, CONTRACTS.TOKEN, 'approve', [
+        new Address(publicKey).toScVal(),
+        new Address(CONTRACTS.VAULT).toScVal(),
+        nativeToScVal(amountNative, { type: 'i128' }),
+        nativeToScVal(expirationLedger, { type: 'u32' }),
+      ]);
+      const signedApprove = await signTransaction(approveXdr, { networkPassphrase: passphrase });
+      const approveRes = await sendPreparedTransaction(signedApprove.signedTxXdr);
+      if (approveRes.status !== 'PENDING') {
+        throw new Error(`Approve failed: ${approveRes.status} ${approveRes.errorResult || ''}`);
+      }
+      await waitForTransaction(approveRes.hash);
+
+      const depositXdr = await buildContractCallXdr(publicKey, CONTRACTS.VAULT, 'deposit', [
+        new Address(publicKey).toScVal(),
+        nativeToScVal(amountNative, { type: 'i128' }),
+      ]);
+      const signedDeposit = await signTransaction(depositXdr, { networkPassphrase: passphrase });
+      const depositRes = await sendPreparedTransaction(signedDeposit.signedTxXdr);
       
       if (depositRes.status !== 'PENDING') {
         console.error('Atomic Deposit failed RPC Response:', depositRes);
