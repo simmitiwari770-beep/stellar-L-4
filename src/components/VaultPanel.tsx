@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { Loader2, ArrowDownCircle, ArrowUpCircle, Sparkles, Wallet, Copy } from 'lucide-react';
 import { signTransaction } from '@stellar/freighter-api';
-import { Address, nativeToScVal } from '@stellar/stellar-sdk';
-import { CONTRACTS, TOKEN_FACTOR, EXPLORER_URL } from '@/lib/config';
+import { Address, nativeToScVal, StrKey } from '@stellar/stellar-sdk';
+import { CONTRACTS, TOKEN_FACTOR, EXPLORER_URL, NETWORK } from '@/lib/config';
+import TxReceiptCard, { type TxReceipt } from '@/components/TxReceiptCard';
 import { 
   buildContractCallXdr,
   sendPreparedTransaction,
@@ -16,6 +17,16 @@ import {
 
 function isTxSuccess(status: string | undefined): boolean {
   return String(status ?? '').toUpperCase() === 'SUCCESS';
+}
+
+function parseSstAmount(s: string): number {
+  const n = Number.parseFloat(String(s).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function ledgerFromRpc(res: unknown): number | undefined {
+  const r = res as { ledger?: number };
+  return typeof r.ledger === 'number' ? r.ledger : undefined;
 }
 
 export default function VaultPanel() {
@@ -35,11 +46,23 @@ export default function VaultPanel() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<TxReceipt | null>(null);
+  /** Must match Freighter public key — Soroban vault requires user.require_auth() on this address */
+  const [depositSignerAddress, setDepositSignerAddress] = useState('');
   const depositValue = parseFloat(depositAmount || '0');
   const walletTokenValue = parseFloat(tokenBalance || '0');
   const hasEnoughWalletBalanceForDeposit = depositValue <= walletTokenValue;
   const [faucetLoading, setFaucetLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (publicKey) {
+      setDepositSignerAddress(publicKey);
+    }
+  }, [publicKey]);
+
+  const pendingRewardNum = useMemo(() => parseSstAmount(pendingRewards), [pendingRewards]);
+  const vaultBalNum = useMemo(() => parseSstAmount(vaultBalance), [vaultBalance]);
 
   const copyText = async (label: string, text: string) => {
     try {
@@ -55,10 +78,11 @@ export default function VaultPanel() {
     if (!publicKey || !CONTRACTS.TOKEN) return;
     setError(null);
     setTxHash(null);
+    setReceipt(null);
     setFaucetLoading(true);
     const passphrase = getNetworkPassphrase();
 
-    const tryOnChainDrip = async (): Promise<string> => {
+    const tryOnChainDrip = async (): Promise<{ hash: string; ledger?: number }> => {
       const dripXdr = await buildContractCallXdr(publicKey, CONTRACTS.TOKEN, 'claim_testnet_drip', [
         new Address(publicKey).toScVal(),
       ]);
@@ -70,8 +94,8 @@ export default function VaultPanel() {
       if (res.status !== 'PENDING') {
         throw new Error(`Drip failed: ${res.status} ${res.errorResult || ''}`);
       }
-      await waitForTransaction(res.hash);
-      return res.hash;
+      const final = await waitForTransaction(res.hash);
+      return { hash: res.hash, ledger: ledgerFromRpc(final) };
     };
 
     const tryServerFaucet = async (): Promise<string | undefined> => {
@@ -89,8 +113,11 @@ export default function VaultPanel() {
 
     try {
       let hash: string | undefined;
+      let ledgerHint: number | undefined;
       try {
-        hash = await tryOnChainDrip();
+        const drip = await tryOnChainDrip();
+        hash = drip.hash;
+        ledgerHint = drip.ledger;
       } catch (dripErr: any) {
         try {
           hash = await tryServerFaucet();
@@ -104,7 +131,22 @@ export default function VaultPanel() {
           );
         }
       }
-      if (hash) setTxHash(hash);
+      if (hash && publicKey) {
+        setTxHash(hash);
+        setReceipt({
+          kind: 'faucet',
+          hash,
+          signer: publicKey,
+          amountSst: '100',
+          tokenContract: CONTRACTS.TOKEN,
+          vaultContract: CONTRACTS.VAULT,
+          network: NETWORK,
+          ledger: ledgerHint,
+          confirmedAtIso: new Date().toISOString(),
+          explorerUrl: `${EXPLORER_URL}/tx/${hash}`,
+          note: 'Testnet drip mints SST to your wallet. Final balances update from RPC.',
+        });
+      }
       await refreshBalances();
     } catch (e: any) {
       setError(e?.message || 'Faucet failed');
@@ -116,9 +158,22 @@ export default function VaultPanel() {
   const handleDeposit = async () => {
     setError(null);
     setTxHash(null);
+    setReceipt(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT || !CONTRACTS.TOKEN) return;
     let historyHash: string | null = null;
     try {
+      const signer = depositSignerAddress.trim();
+      if (!signer) {
+        throw new Error('Enter the Stellar address that will sign this deposit (your Freighter account).');
+      }
+      if (!StrKey.isValidEd25519PublicKey(signer)) {
+        throw new Error('Invalid Stellar address: use a public key starting with G (56 characters).');
+      }
+      if (signer !== publicKey) {
+        throw new Error(
+          'This address must match your currently connected Freighter account. Open the Freighter extension, switch to the account you want, reconnect here, then the field will stay in sync — or paste the same key as under Connected.'
+        );
+      }
       if (!depositAmount || Number.isNaN(depositValue) || depositValue <= 0) {
         throw new Error('Enter a valid deposit amount');
       }
@@ -139,8 +194,8 @@ export default function VaultPanel() {
 
       // Soroban transaction simulation currently expects one contract operation.
       // Execute approve and deposit as two deterministic sequential transactions.
-      const approveXdr = await buildContractCallXdr(publicKey, CONTRACTS.TOKEN, 'approve', [
-        new Address(publicKey).toScVal(),
+      const approveXdr = await buildContractCallXdr(signer, CONTRACTS.TOKEN, 'approve', [
+        new Address(signer).toScVal(),
         new Address(CONTRACTS.VAULT).toScVal(),
         nativeToScVal(amountNative, { type: 'i128' }),
         nativeToScVal(expirationLedger, { type: 'u32' }),
@@ -155,8 +210,8 @@ export default function VaultPanel() {
       }
       await waitForTransaction(approveRes.hash);
 
-      const depositXdr = await buildContractCallXdr(publicKey, CONTRACTS.VAULT, 'deposit', [
-        new Address(publicKey).toScVal(),
+      const depositXdr = await buildContractCallXdr(signer, CONTRACTS.VAULT, 'deposit', [
+        new Address(signer).toScVal(),
         nativeToScVal(amountNative, { type: 'i128' }),
       ]);
       const signedDeposit = await signTransaction(depositXdr, { networkPassphrase: passphrase });
@@ -192,6 +247,21 @@ export default function VaultPanel() {
         );
       }
 
+      const lg = ledgerFromRpc(depositFinal);
+      setReceipt({
+        kind: 'deposit',
+        hash: depositRes.hash,
+        signer: signer,
+        amountSst: depositAmount,
+        tokenContract: CONTRACTS.TOKEN,
+        vaultContract: CONTRACTS.VAULT,
+        network: NETWORK,
+        ledger: lg,
+        confirmedAtIso: new Date().toISOString(),
+        explorerUrl: `${EXPLORER_URL}/tx/${depositRes.hash}`,
+        note:
+          'Includes a separate approve transaction immediately before this deposit. Both are signed with Freighter.',
+      });
       setTxHash(depositRes.hash);
       setDepositAmount('');
       try {
@@ -213,6 +283,7 @@ export default function VaultPanel() {
   const handleWithdraw = async () => {
     setError(null);
     setTxHash(null);
+    setReceipt(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT) return;
     let historyHash: string | null = null;
     try {
@@ -262,6 +333,18 @@ export default function VaultPanel() {
         );
       }
 
+      setReceipt({
+        kind: 'withdraw',
+        hash: withdrawRes.hash,
+        signer: publicKey,
+        amountSst: withdrawAmount,
+        tokenContract: CONTRACTS.TOKEN,
+        vaultContract: CONTRACTS.VAULT,
+        network: NETWORK,
+        ledger: ledgerFromRpc(withdrawFinal),
+        confirmedAtIso: new Date().toISOString(),
+        explorerUrl: `${EXPLORER_URL}/tx/${withdrawRes.hash}`,
+      });
       setTxHash(withdrawRes.hash);
       setWithdrawAmount('');
       try {
@@ -283,10 +366,15 @@ export default function VaultPanel() {
   const handleClaim = async () => {
     setError(null);
     setTxHash(null);
+    setReceipt(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT) return;
     let historyHash: string | null = null;
     try {
+      if (!(pendingRewardNum > 0)) {
+        throw new Error('No pending rewards to claim. Stake SST in the vault first; rewards accrue over time.');
+      }
       setLoading('claim');
+      const claimAmountLabel = pendingRewards;
       const claimXdr = await buildContractCallXdr(
         publicKey,
         CONTRACTS.VAULT,
@@ -314,7 +402,7 @@ export default function VaultPanel() {
         hash: claimRes.hash,
         type: 'claim',
         status: 'pending',
-        amount: pendingRewards,
+        amount: claimAmountLabel,
         timestamp: Date.now(),
         explorerUrl: `${EXPLORER_URL}/tx/${claimRes.hash}`,
       });
@@ -330,6 +418,19 @@ export default function VaultPanel() {
         );
       }
 
+      setReceipt({
+        kind: 'claim',
+        hash: claimRes.hash,
+        signer: publicKey,
+        amountSst: claimAmountLabel,
+        tokenContract: CONTRACTS.TOKEN,
+        vaultContract: CONTRACTS.VAULT,
+        network: NETWORK,
+        ledger: ledgerFromRpc(claimFinal),
+        confirmedAtIso: new Date().toISOString(),
+        explorerUrl: `${EXPLORER_URL}/tx/${claimRes.hash}`,
+        note: 'Reward amount shown was pending at send time; final minted amount is on-chain.',
+      });
       setTxHash(claimRes.hash);
       try {
         await refreshBalances();
@@ -371,18 +472,28 @@ export default function VaultPanel() {
           {error}
         </div>
       )}
-      {txHash && (
-        <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-300">
-          ✅ Transaction confirmed!{' '}
-          <a
-            href={`${EXPLORER_URL}/tx/${txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-green-200"
-          >
-            View →
-          </a>
-        </div>
+      {receipt ? (
+        <TxReceiptCard
+          receipt={receipt}
+          onDismiss={() => {
+            setReceipt(null);
+            setTxHash(null);
+          }}
+        />
+      ) : (
+        txHash && (
+          <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-300">
+            ✅ Transaction submitted — waiting for receipt…{' '}
+            <a
+              href={`${EXPLORER_URL}/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-green-200"
+            >
+              Explorer
+            </a>
+          </div>
+        )
       )}
 
       {/* Deposit Section */}
@@ -400,6 +511,34 @@ export default function VaultPanel() {
           >
             Use Max: {tokenBalance}
           </button>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Deposit from address (must match Freighter)
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              spellCheck={false}
+              className="input-field w-full font-mono text-xs"
+              placeholder="G... (same as connected wallet)"
+              value={depositSignerAddress}
+              onChange={(e) => setDepositSignerAddress(e.target.value)}
+              autoComplete="off"
+              aria-invalid={depositSignerAddress.trim() !== (publicKey ?? '')}
+            />
+            <button
+              type="button"
+              onClick={() => publicKey && setDepositSignerAddress(publicKey)}
+              className="shrink-0 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-indigo-300 hover:bg-indigo-500/20"
+            >
+              Use connected
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Real on-chain rule: the vault only accepts a deposit when this address <strong className="text-slate-400">equals</strong> your
+            Freighter signer. To use another account, switch it in Freighter — this field updates automatically.
+          </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -420,12 +559,15 @@ export default function VaultPanel() {
               !depositAmount ||
               Number.isNaN(depositValue) ||
               depositValue <= 0 ||
-              !hasEnoughWalletBalanceForDeposit
+              !hasEnoughWalletBalanceForDeposit ||
+              depositSignerAddress.trim() !== (publicKey ?? '')
             }
             className="btn-primary min-w-[140px] py-3 shadow-lg shadow-indigo-500/20"
           >
             {loading === 'deposit' ? (
               <Loader2 className="animate-spin h-5 w-5" />
+            ) : depositSignerAddress.trim() !== (publicKey ?? '') ? (
+              'Address ≠ Freighter'
             ) : !hasEnoughWalletBalanceForDeposit ? (
               'Insufficient Balance'
             ) : (
@@ -434,8 +576,8 @@ export default function VaultPanel() {
           </button>
         </div>
         <p className="text-[10px] leading-relaxed text-slate-500">
-          Deposits credit the <span className="font-semibold text-slate-400">connected wallet</span> only (vault
-          requires your signature). To use another Stellar address, switch accounts in Freighter.
+          Deposits credit the vault balance for the <span className="font-semibold text-slate-400">signer address</span> above
+          (Soroban <code className="text-slate-400">require_auth</code>).
         </p>
         <div className="rounded-xl border border-slate-700/40 bg-slate-950/40 p-3 space-y-2">
           <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
@@ -543,13 +685,24 @@ export default function VaultPanel() {
             <span className="ml-2 text-sm font-medium text-slate-500 uppercase">SST</span>
           </p>
         </div>
-        <button
-          onClick={handleClaim}
-          disabled={loading !== null || parseFloat(pendingRewards) <= 0}
-          className="relative z-10 btn-primary px-10 py-4 shadow-xl shadow-indigo-500/40 bg-indigo-500 hover:bg-indigo-400 border-none transition-all hover:scale-105 active:scale-95"
-        >
-          {loading === 'claim' ? <Loader2 className="animate-spin h-5 w-5" /> : 'Claim Rewards'}
-        </button>
+        <div className="relative z-10 flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+          <button
+            type="button"
+            onClick={handleClaim}
+            disabled={loading !== null || !(pendingRewardNum > 0)}
+            className="btn-primary px-10 py-4 shadow-xl shadow-indigo-500/40 bg-indigo-500 hover:bg-indigo-400 border-none transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+          >
+            {loading === 'claim' ? <Loader2 className="animate-spin h-5 w-5" /> : 'Claim Rewards'}
+          </button>
+          {vaultBalNum > 0 && !(pendingRewardNum > 0) && (
+            <p className="max-w-[280px] text-center text-[10px] leading-snug text-slate-500 sm:text-right">
+              Rewards accrue while SST stays in the vault. Check again after a short wait.
+            </p>
+          )}
+          {vaultBalNum <= 0 && (
+            <p className="max-w-[280px] text-center text-[10px] text-slate-500 sm:text-right">Deposit SST first to earn rewards.</p>
+          )}
+        </div>
       </div>
 
     </div>

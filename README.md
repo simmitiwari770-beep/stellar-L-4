@@ -45,6 +45,27 @@ Optional **`/api/faucet`** still mints via the token admin key if you set **`DEP
 
 You still need a small **XLM** balance on testnet (e.g. Friendbot) to pay fees for drip / deposit / withdraw.
 
+### Freighter account & deposit address (real checks, not dummy data)
+
+- The dApp shows a **“Deposit from address”** field for transparency. That value **must match** the account currently selected in **Freighter** on every deposit.
+- **Soroban rule:** `vault::deposit` calls `user.require_auth()`. Only the signing wallet can move SST from its balance into the vault for **its own** vault position. You cannot credit a different person’s vault unless that person signs (by design).
+- To use **another Stellar account**: open the Freighter extension, switch accounts, then reconnect or press **“Use connected”** so the pasted address stays in sync with the real signer.
+
+### On-chain receipt (after each successful tx)
+
+After **deposit**, **withdraw**, **claim**, or **testnet faucet / drip**, the UI shows a **receipt card** with:
+
+- Network name, **ledger** (when the RPC returns it), **signer (Freighter)** address  
+- **Full transaction hash** (copy button) and **Stellar Expert** link  
+- **SST token** and **vault** contract IDs for verification  
+
+Values are read from live RPC / your confirmed transaction — not placeholder text.
+
+### Claim rewards
+
+- Rewards accrue while SST remains **staked** in the vault (time × rate in the contract). The **Claim Rewards** button enables only when **pending rewards** from the contract are **> 0** (parsed from `get_pending_rewards`).
+- If you have a vault balance but pending is still `0`, wait briefly — accrual updates on new ledgers / polling.
+
 ### 🔗 Inter-Contract Call Proof
 When a user deposits tokens via the Vault, the following sequence occurs:
 1. User approves the Vault contract on the SST Token contract.
