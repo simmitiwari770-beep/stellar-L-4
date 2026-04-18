@@ -1,11 +1,11 @@
-#![cfg(test)]
+
 
 use super::*;
 use soroban_sdk::{testutils::Address as _, Address, Env};
 use soroban_sdk::token::Client as TokenClient;
 use soroban_sdk::testutils::Ledger;
 
-fn mint_tokens(env: &Env, token_address: &Address, admin: &Address, to: &Address, amount: i128) {
+fn mint_tokens(env: &Env, token_address: &Address, _admin: &Address, to: &Address, amount: i128) {
     use soroban_sdk::token::StellarAssetClient;
     StellarAssetClient::new(env, token_address).mint(to, &amount);
 }
