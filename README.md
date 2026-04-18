@@ -27,6 +27,41 @@ graph TD
     Token -- Transfer Authority --> Vault
 ```
 
+## 📸 Screenshots (CI/CD + mobile)
+
+Add these files under the `docs/` folder, then they render automatically below. **Exact filenames** (so links don’t break):
+
+| File | What it should show |
+|------|---------------------|
+| `docs/ci-pipeline.png` | GitHub **Actions** → latest **green** run → workflow graph / job list (Contracts, Frontend, optional Deploy) |
+| `docs/mobile-view.png` | Live app on a **phone-sized** viewport (see steps below) |
+
+**CI/CD (GitHub Actions — add file `docs/ci-pipeline.png`):**
+
+![GitHub Actions CI/CD workflow](docs/ci-pipeline.png)
+
+**Mobile responsive (add file `docs/mobile-view.png`):**
+
+![SoroVault mobile view](docs/mobile-view.png)
+
+### How to take the **CI/CD pipeline** screenshot
+
+1. Open your repo on GitHub: **Actions** tab (e.g. `https://github.com/<user>/stellar-L-4/actions`).
+2. Click workflow **“SoroSwap CI/CD”** (file: `.github/workflows/ci.yml`).
+3. Open the **latest successful** run on `main` (green check).
+4. Capture the page so these are visible: **workflow title**, **commit**, **green status**, and **jobs** (e.g. 🦀 Contracts, ⚡ Frontend). Expand a job if you want log proof.
+5. **macOS:** `Cmd + Shift + 4` (region) or `Cmd + Shift + 3` (full screen). **Windows:** `Win + Shift + S`. **Chrome:** right‑click → Inspect → `Ctrl+Shift+P` → “Capture full size screenshot” (optional).
+6. Save as **`docs/ci-pipeline.png`** in this project and commit.
+
+### How to take the **mobile view** screenshot
+
+1. Open the live site (e.g. [stellar-l-4.vercel.app](https://stellar-l-4.vercel.app)).
+2. **Chrome / Edge:** `F12` → **Toggle device toolbar** (`Ctrl + Shift + M` / `Cmd + Shift + M`) → choose **iPhone 12 Pro** or **Pixel 7** (width ~390px).
+3. Scroll so the main vault / hero is visible; capture (same shortcuts as above).
+4. Save as **`docs/mobile-view.png`** and commit.
+
+After you save both PNGs under `docs/` and push, they will show on GitHub. Until then you may see a missing-image placeholder or alt text only.
+
 ## 🚀 Deployment Status (Stellar Testnet)
 
 - **Token Contract (SST)**: `CDNLBEZJL7EAMB6Y3OUQC4VXOJSNZUI74Z6XT2757PLLB3HEH4ERLFYO`
@@ -101,8 +136,8 @@ The project implements a robust GitHub Actions workflow that:
 
 - **Public GitHub repository**: [stellar-L-4](https://github.com/simmitiwari770-beep/stellar-L-4)
 - **Live demo**: [stellar-l-4.vercel.app](https://stellar-l-4.vercel.app) — after contract changes, confirm env vars match the latest deploy.
-- **Mobile responsive screenshot**: Add real screenshot at `docs/mobile-responsive.png` and reference it here.
-- **CI/CD proof**: GitHub Actions badge is shown at the top of this README.
+- **Mobile responsive screenshot**: Save as `docs/mobile-view.png` (see **Screenshots** section above).
+- **CI/CD proof**: Badge at top + optional screenshot `docs/ci-pipeline.png`; link to Actions: `https://github.com/simmitiwari770-beep/stellar-L-4/actions`
 - **Inter-contract call proof**: Vault `deposit`/`withdraw` call token `transfer_from`/`transfer`.
 - **Contract addresses**: Token and Vault addresses listed above.
 - **Transaction hash proof**: Capture and add real testnet tx hashes from Stellar Expert before submitting.
@@ -117,4 +152,4 @@ The project implements a robust GitHub Actions workflow that:
 - `npm run build`
 
 ---
-Built by Antigravity for the Stellar Advanced Coding Challenge.
+
