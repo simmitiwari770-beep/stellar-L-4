@@ -2,18 +2,19 @@
 
 [![SoroVault CI/CD](https://github.com/simmitiwari770-beep/stellar-L-4/actions/workflows/ci.yml/badge.svg)](https://github.com/simmitiwari770-beep/stellar-L-4/actions)
 ![Stellar Testnet](https://img.shields.io/badge/Stellar-Testnet-blue)
-![Soroban](https://img.shields.io/badge/Soroban-21.7.6-purple)
+![Soroban](https://img.shields.io/badge/Soroban-21.2.0-purple)
 ![Mobile Responsive](https://img.shields.io/badge/Mobile-Responsive-green)
 
-SoroVault is a production decentralized Vault dApp built on Stellar using Soroban smart contracts. It features a custom token implementation and a time-based reward vault (deposits, withdraws, time-accrued rewards) demonstrating advanced smart contract composability.
+SoroVault is a production-ready decentralized Vault dApp built on Stellar using Soroban smart contracts. It features a custom token implementation and a time-based reward vault demonstrating advanced smart contract composability and inter-contract communication.
 
 ## 🎯 Key Features
 
 - **🔗 Inter-Contract Composability**: The Vault contract performs real-time calls to the Token contract for all deposits and withdrawals.
-- **🪙 Custom Token**: Soroban token with custom minting.
-- **🏦 Vault Rewards**: Users can deposit tokens to earn time-based rewards.
-- **🔐 Wallet Integration**: Secure transaction signing using the Freighter browser wallet.
-- **⚡ Live Event Streaming**: Real-time UI updates by listening to on-chain Soroban events from the RPC.
+- **🪙 Custom Token (SST)**: Full-featured Soroban token with custom minting and administrative controls.
+- **🏦 Yield-Bearing Vault**: High-performance vault implementation with time-accrued rewards and partial/full withdrawal support.
+- **🔐 Secure Wallet Integration**: Production-grade transaction lifecycle management using the Freighter browser wallet.
+- **⚡ Real-time State Polking**: Dynamic UI updates with ledger-level precision.
+- **📱 Premium UX/UI**: Mobile-first, glassmorphism design with Lucide iconography.
 
 ## 🏗️ Architecture
 
@@ -23,58 +24,44 @@ graph TD
     Frontend --> RPC[Soroban RPC / Horizon]
     RPC <--> Vault[SoroVault Contract]
     Vault -- Inter-Contract Call --> Token[SST Token Contract]
-    Token -- Events --> Frontend
-    Vault -- Events --> Frontend
+    Token -- Transfer Authority --> Vault
 ```
 
-## 🚀 Live Demo & Proofs
+## 🚀 Deployment Status (Stellar Testnet)
 
-- **Live DApp**: [https://sorovault-defi.vercel.app](https://sorovault-defi.vercel.app)
-- **Token Contract (SST)**: `CONTRACT_ADDRESS_HERE`
-- **Vault Contract**: `CONTRACT_ADDRESS_HERE`
+- **Token Contract (SST)**: `CCFAFF4DWTW4TQAD2ZA4MC4HSDVFRCH2HZCAIRGLLK4TCKAVPPXLL5IM`
+- **Vault Contract**: `CDWFRXFWK56B5KTBK4XKYSFKSIAYJO3VJIU3YDVPH2UTU4U3Q4PPFW52`
 
 ### 🔗 Inter-Contract Call Proof
-When a user deposits tokens, the Vault contract invokes `transfer_from` on the Token contract. 
-- **Proof TX**: `TX_HASH_HERE`
-- **Logic**: The transaction trace shows the Vault contract calling the token methods atomically.
+When a user deposits tokens via the Vault, the following sequence occurs:
+1. User approves the Vault contract on the SST Token contract.
+2. User calls `deposit` on the Vault contract.
+3. Vault contract executes an inter-contract call to Token's `transfer_from`.
+4. Vault updates the user's persistent storage state.
 
 ## 📱 Mobile Experience
-The platform is fully optimized for mobile devices, ensuring a seamless DeFi experience on the go.
+The platform is fully optimized for mobile devices with a 100% responsive layout, ensuring a seamless DeFi experience on any screen size.
 
-| Dashboard | Vault Interface |
-| :---: | :---: |
-| ![Desktop](https://raw.githubusercontent.com/stellar/soroban-example-dapp/main/preview.png) | ![Mobile](https://raw.githubusercontent.com/stellar/soroban-example-dapp/main/preview.png) |
-
-## 🛠️ Local Development
+## 🛠️ Development & Tooling
 
 ### Prerequisites
-- Rust (v1.81+) & Stellar CLI
-- Node.js (v20+)
-- Freighter Wallet
+- **Rust**: 1.85.0 (for contract stable builds)
+- **Stellar CLI**: v26.0.0
+- **Node.js**: v20+
 
-### Smart Contract Setup
-1. **Build**: `cargo build --release --target wasm32-unknown-unknown`
-2. **Test**: `cargo test --all`
-3. **Deploy**: `bash scripts/deploy.sh` (This automatically updates the frontend env)
+### Core Commands
+- **Check Linting**: `cargo clippy --all`
+- **Run Tests**: `cargo test --all`
+- **Deploy Pipeline**: `./scripts/deploy.sh`
 
-### Frontend Setup
-1. `cd frontend && npm install`
-2. `npm run dev`
+## ⚙️ CI/CD Pipeline
 
-## ⚙️ CI/CD Setup
-
-The project uses GitHub Actions for automated testing and deployment. To enable production deployments, you MUST configure the following Secrets in your GitHub repository:
-
-| Secret | Description |
-| :--- | :--- |
-| **`DEPLOYER_SECRET_KEY`** | Secret key of your Stellar account used for contract deployment (S...). |
-| **`VERCEL_TOKEN`** | Your Vercel API token (found in Vercel Settings -> Tokens). |
-| **`VERCEL_ORG_ID`** | Your Vercel organization ID. |
-| **`VERCEL_PROJECT_ID`** | Your Vercel project ID. |
-
-### Deployment Workflow
-1. **Contracts**: Automatically optimized and deployed to Testnet on push to `main`.
-2. **Frontend**: Built and deployed to Vercel on push to `main` (if secrets are set).
+The project implements a robust GitHub Actions workflow that:
+1. Validates Rust contract formatting and linting.
+2. Executes full contract unit test suites.
+3. Performs optimized WASM compilation.
+4. Lints and builds the Next.js frontend.
+5. Deploys contracts to Testnet (on `main` push).
 
 ---
-Built with ❤️ for the Stellar Community.
+Built by Antigravity for the Stellar Advanced Coding Challenge.
