@@ -22,14 +22,24 @@ export default function VaultPanel() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const depositValue = parseFloat(depositAmount || '0');
+  const walletTokenValue = parseFloat(tokenBalance || '0');
+  const hasEnoughWalletBalanceForDeposit = depositValue <= walletTokenValue;
 
   const handleDeposit = async () => {
     setError(null);
     setTxHash(null);
     if (!connected || !publicKey || !CONTRACTS.VAULT || !CONTRACTS.TOKEN) return;
     try {
+      if (!depositAmount || Number.isNaN(depositValue) || depositValue <= 0) {
+        throw new Error('Enter a valid deposit amount');
+      }
+      if (!hasEnoughWalletBalanceForDeposit) {
+        throw new Error('Insufficient wallet balance for deposit');
+      }
+
       setLoading('deposit');
-      const amountNative = BigInt(Math.floor(parseFloat(depositAmount) * TOKEN_FACTOR));
+      const amountNative = BigInt(Math.floor(depositValue * TOKEN_FACTOR));
       const currentLedger = await getLatestLedger();
       const expirationLedger = currentLedger.sequence + 5000;
       
@@ -249,10 +259,22 @@ export default function VaultPanel() {
           </div>
           <button
             onClick={handleDeposit}
-            disabled={loading !== null || !depositAmount || parseFloat(depositAmount) <= 0}
+            disabled={
+              loading !== null ||
+              !depositAmount ||
+              Number.isNaN(depositValue) ||
+              depositValue <= 0 ||
+              !hasEnoughWalletBalanceForDeposit
+            }
             className="btn-primary min-w-[140px] py-3 shadow-lg shadow-indigo-500/20"
           >
-            {loading === 'deposit' ? <Loader2 className="animate-spin h-5 w-5" /> : 'Deposit Now'}
+            {loading === 'deposit' ? (
+              <Loader2 className="animate-spin h-5 w-5" />
+            ) : !hasEnoughWalletBalanceForDeposit ? (
+              'Insufficient Balance'
+            ) : (
+              'Deposit Now'
+            )}
           </button>
         </div>
       </div>
