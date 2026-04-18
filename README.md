@@ -33,6 +33,16 @@ graph TD
 - **Vault Contract**: `CDWFRXFWK56B5KTBK4XKYSFKSIAYJO3VJIU3YDVPH2UTU4U3Q4PPFW52`
 - **Pool Contract (optional AMM module)**: Deploy on-demand via `contracts/pool-contract`
 
+### Testnet SST faucet (no server secret)
+
+The token contract exposes **`claim_testnet_drip`**: the user signs one Soroban transaction in Freighter and receives **100 SST**, with a ledger-based cooldown (see `contracts/token-contract`). That path works on Vercel **without** `DEPLOYER_SECRET_KEY`.
+
+**Important:** Instances of the token deployed **before** this entrypoint existed must be **redeployed** with `scripts/deploy.sh` (or your CI deploy job). Then update **both** `NEXT_PUBLIC_TOKEN_CONTRACT` and `NEXT_PUBLIC_VAULT_CONTRACT` everywhere (Vercel, `src/lib/config.ts` defaults, and this README) so the app and vault stay paired.
+
+Optional **`/api/faucet`** still mints via the token admin key if you set **`DEPLOYER_SECRET_KEY`** (or `TOKEN_ADMIN_SECRET_KEY`) to the same secret as the token’s admin identity.
+
+You still need a small **XLM** balance on testnet (e.g. Friendbot) to pay fees for drip / deposit / withdraw.
+
 ### 🔗 Inter-Contract Call Proof
 When a user deposits tokens via the Vault, the following sequence occurs:
 1. User approves the Vault contract on the SST Token contract.
@@ -67,7 +77,7 @@ The project implements a robust GitHub Actions workflow that:
 ## 📦 Submission Checklist Mapping
 
 - **Public GitHub repository**: [stellar-L-4](https://github.com/simmitiwari770-beep/stellar-L-4)
-- **Live demo**: Deploy this repo to Vercel/Netlify and add the URL here before submission.
+- **Live demo**: [stellar-l-4.vercel.app](https://stellar-l-4.vercel.app) — after contract changes, confirm env vars match the latest deploy.
 - **Mobile responsive screenshot**: Add real screenshot at `docs/mobile-responsive.png` and reference it here.
 - **CI/CD proof**: GitHub Actions badge is shown at the top of this README.
 - **Inter-contract call proof**: Vault `deposit`/`withdraw` call token `transfer_from`/`transfer`.

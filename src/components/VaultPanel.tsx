@@ -28,11 +28,29 @@ export default function VaultPanel() {
   const [faucetLoading, setFaucetLoading] = useState(false);
 
   const requestTestTokens = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !CONTRACTS.TOKEN) return;
     setError(null);
     setTxHash(null);
     setFaucetLoading(true);
-    try {
+    const passphrase = getNetworkPassphrase();
+
+    const tryOnChainDrip = async (): Promise<string> => {
+      const dripXdr = await buildContractCallXdr(publicKey, CONTRACTS.TOKEN, 'claim_testnet_drip', [
+        new Address(publicKey).toScVal(),
+      ]);
+      const signed = await signTransaction(dripXdr, { networkPassphrase: passphrase });
+      if (signed.error) {
+        throw new Error(signed.error);
+      }
+      const res = await sendPreparedTransaction(signed.signedTxXdr);
+      if (res.status !== 'PENDING') {
+        throw new Error(`Drip failed: ${res.status} ${res.errorResult || ''}`);
+      }
+      await waitForTransaction(res.hash);
+      return res.hash;
+    };
+
+    const tryServerFaucet = async (): Promise<string | undefined> => {
       const res = await fetch('/api/faucet', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -40,11 +58,29 @@ export default function VaultPanel() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json?.error || 'Faucet request failed');
+        throw new Error(json?.error || `Faucet HTTP ${res.status}`);
       }
-      if (json?.hash) {
-        setTxHash(String(json.hash));
+      return json?.hash ? String(json.hash) : undefined;
+    };
+
+    try {
+      let hash: string | undefined;
+      try {
+        hash = await tryOnChainDrip();
+      } catch (dripErr: any) {
+        try {
+          hash = await tryServerFaucet();
+        } catch (apiErr: any) {
+          const d = dripErr?.message || String(dripErr);
+          const a = apiErr?.message || String(apiErr);
+          throw new Error(
+            `Could not mint test SST. Signed drip failed (${d}). API faucet failed (${a}). ` +
+              `Redeploy the token from this repo (WASM includes claim_testnet_drip) and set NEXT_PUBLIC_TOKEN_CONTRACT + NEXT_PUBLIC_VAULT_CONTRACT on Vercel, ` +
+              `or set DEPLOYER_SECRET_KEY (token admin) for /api/faucet. See README.`
+          );
+        }
       }
+      if (hash) setTxHash(hash);
       await refreshBalances();
     } catch (e: any) {
       setError(e?.message || 'Faucet failed');

@@ -60,6 +60,33 @@ impl SoroswapToken {
     pub fn admin(env: Env) -> Address {
         admin::read_administrator(&env)
     }
+
+    /// Self-serve testnet SST: the recipient signs; credits a fixed amount with a ledger cooldown.
+    /// Avoids requiring a server-side admin key on Vercel. Do not treat this as mainnet-safe economics.
+    pub fn claim_testnet_drip(env: Env, to: Address) {
+        to.require_auth();
+        const AMOUNT: i128 = 100 * 10_000_000; // 100 SST (7 decimals)
+        const COOLDOWN_LEDGERS: u32 = 720; // ~1h if ~5s/ledger on testnet
+
+        let key = storage_types::DataKey::TestnetDripLastLedger(to.clone());
+        let ledger = env.ledger().sequence();
+        if let Some(last) = env
+            .storage()
+            .persistent()
+            .get::<storage_types::DataKey, u32>(&key)
+        {
+            let earliest = last.saturating_add(COOLDOWN_LEDGERS);
+            if ledger < earliest {
+                panic!("testnet drip cooldown");
+            }
+        }
+
+        balance::receive_balance(&env, to.clone(), AMOUNT);
+        env.storage().persistent().set(&key, &ledger);
+
+        let admin = admin::read_administrator(&env);
+        event::mint(&env, admin, to, AMOUNT);
+    }
 }
 
 #[contractimpl]

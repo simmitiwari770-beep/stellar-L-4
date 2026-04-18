@@ -20,6 +20,8 @@ pub enum DataKey {
     Balance(Address),
     Nonce(Address),
     State(Address),
+    /// Last ledger when `claim_testnet_drip` succeeded for this address (testnet demo faucet).
+    TestnetDripLastLedger(Address),
     Admin,
     Metadata,
 }

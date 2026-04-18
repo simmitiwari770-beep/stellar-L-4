@@ -1,6 +1,7 @@
 #![allow(clippy::inconsistent_digit_grouping)]
 extern crate std;
 
+use soroban_sdk::testutils::Ledger;
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 use crate::{SoroswapToken, SoroswapTokenClient};
@@ -96,6 +97,47 @@ fn test_allowance_and_transfer_from() {
     // No fee on transfer_from — direct 1:1
     assert_eq!(client.balance(&recipient), 100_0000000i128);
     assert_eq!(client.allowance(&owner, &spender), 100_0000000i128);
+}
+
+#[test]
+fn test_claim_testnet_drip() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _) = create_token(&env);
+    let user = Address::generate(&env);
+
+    client.claim_testnet_drip(&user);
+    assert_eq!(client.balance(&user), 100 * 10_000_000i128);
+}
+
+#[test]
+#[should_panic(expected = "testnet drip cooldown")]
+fn test_claim_testnet_drip_cooldown() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _) = create_token(&env);
+    let user = Address::generate(&env);
+
+    client.claim_testnet_drip(&user);
+    client.claim_testnet_drip(&user);
+}
+
+#[test]
+fn test_claim_testnet_drip_after_cooldown() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _) = create_token(&env);
+    let user = Address::generate(&env);
+
+    client.claim_testnet_drip(&user);
+    env.ledger().with_mut(|l| {
+        l.sequence_number += 720;
+    });
+    client.claim_testnet_drip(&user);
+    assert_eq!(client.balance(&user), 200 * 10_000_000i128);
 }
 
 #[test]

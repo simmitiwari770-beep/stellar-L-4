@@ -29,9 +29,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Token contract not configured' }, { status: 400 });
     }
 
-    const secret = process.env.DEPLOYER_SECRET_KEY;
+    const secret =
+      process.env.DEPLOYER_SECRET_KEY ||
+      process.env.TOKEN_ADMIN_SECRET_KEY ||
+      process.env.SOROBAN_DEPLOYER_SECRET_KEY;
     if (!secret) {
-      return NextResponse.json({ error: 'Faucet not configured' }, { status: 501 });
+      return NextResponse.json(
+        {
+          error: 'Faucet not configured',
+          hint: 'Set DEPLOYER_SECRET_KEY (or TOKEN_ADMIN_SECRET_KEY) to the Stellar secret key of the token admin, or use on-chain claim_testnet_drip after redeploying the latest token WASM.',
+        },
+        { status: 501 }
+      );
     }
 
     const body = await req.json().catch(() => ({}));
