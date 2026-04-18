@@ -6,14 +6,14 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 use crate::{SoroswapToken, SoroswapTokenClient};
 
-fn create_token<'a>(env: &Env) -> (SoroswapTokenClient<'a>, Address) {
+fn create_token<'a>(env: &'a Env) -> (SoroswapTokenClient<'a>, Address) {
     let admin = Address::generate(env);
     let contract_id = env.register_contract(None, SoroswapToken);
     let client = SoroswapTokenClient::new(env, &contract_id);
     client.initialize(
         &admin,
         &7,
-        &String::from_str(env, "SoroSwap Token"),
+        &String::from_str(env, "SoroVault Token"),
         &String::from_str(env, "SST"),
     );
     (client, admin)
@@ -26,7 +26,7 @@ fn test_initialize() {
     let (client, _) = create_token(&env);
 
     assert_eq!(client.decimals(), 7);
-    assert_eq!(client.name(), String::from_str(&env, "SoroSwap Token"));
+    assert_eq!(client.name(), String::from_str(&env, "SoroVault Token"));
     assert_eq!(client.symbol(), String::from_str(&env, "SST"));
 }
 
@@ -43,28 +43,20 @@ fn test_mint_and_balance() {
 }
 
 #[test]
-fn test_transfer_with_fee() {
+fn test_transfer() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let (client, admin) = create_token(&env);
+    let (client, _admin) = create_token(&env);
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
 
-    // Mint 1000 tokens to sender
     client.mint(&sender, &1_000_0000000i128);
-
-    // Transfer 100 tokens — 0.3% fee should be deducted
     client.transfer(&sender, &receiver, &100_0000000i128);
 
-    let fee = 100_0000000i128 * 30 / 10000; // 30 bps
-    let expected = 100_0000000i128 - fee;
-
-    assert_eq!(client.balance(&receiver), expected);
-    // admin gets fee
-    assert_eq!(client.balance(&admin), fee);
-    // sender has correct remainder
-    assert_eq!(client.balance(&sender), 1_000_0000000i128 - 100_0000000i128);
+    // No fee — direct 1:1 transfer
+    assert_eq!(client.balance(&receiver), 100_0000000i128);
+    assert_eq!(client.balance(&sender), 900_0000000i128);
 }
 
 #[test]
@@ -82,7 +74,7 @@ fn test_burn() {
 }
 
 #[test]
-fn test_allowance() {
+fn test_allowance_and_transfer_from() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -102,8 +94,8 @@ fn test_allowance() {
 
     client.transfer_from(&spender, &owner, &recipient, &100_0000000i128);
 
-    let fee = 100_0000000i128 * 30 / 10000;
-    assert_eq!(client.balance(&recipient), 100_0000000i128 - fee);
+    // No fee on transfer_from — direct 1:1
+    assert_eq!(client.balance(&recipient), 100_0000000i128);
     assert_eq!(client.allowance(&owner, &spender), 100_0000000i128);
 }
 
@@ -119,25 +111,4 @@ fn test_transfer_insufficient_balance() {
 
     client.mint(&user, &10_0000000i128);
     client.transfer(&user, &recipient, &100_0000000i128);
-}
-
-#[test]
-fn test_set_fee() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let (client, _admin) = create_token(&env);
-    assert_eq!(client.get_fee_bps(), 30u32);
-
-    client.set_fee(&50u32);
-    assert_eq!(client.get_fee_bps(), 50u32);
-}
-
-#[test]
-#[should_panic(expected = "fee cannot exceed 10%")]
-fn test_set_fee_too_high() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _) = create_token(&env);
-    client.set_fee(&1001u32);
 }

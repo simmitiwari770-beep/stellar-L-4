@@ -162,18 +162,6 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "FeeRecipient"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
                               "symbol": "Metadata"
                             }
                           ]
@@ -193,7 +181,7 @@
                                 "symbol": "name"
                               },
                               "val": {
-                                "string": "SoroSwap Token"
+                                "string": "SoroVault Token"
                               }
                             },
                             {
@@ -205,18 +193,6 @@
                               }
                             }
                           ]
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "TransferFee"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "u32": 30
                         }
                       }
                     ]
@@ -280,7 +256,7 @@
                   "u32": 7
                 },
                 {
-                  "string": "SoroSwap Token"
+                  "string": "SoroVault Token"
                 },
                 {
                   "string": "SST"
