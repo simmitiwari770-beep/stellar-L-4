@@ -25,6 +25,33 @@ export default function VaultPanel() {
   const depositValue = parseFloat(depositAmount || '0');
   const walletTokenValue = parseFloat(tokenBalance || '0');
   const hasEnoughWalletBalanceForDeposit = depositValue <= walletTokenValue;
+  const [faucetLoading, setFaucetLoading] = useState(false);
+
+  const requestTestTokens = async () => {
+    if (!publicKey) return;
+    setError(null);
+    setTxHash(null);
+    setFaucetLoading(true);
+    try {
+      const res = await fetch('/api/faucet', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ to: publicKey, amount: 100 }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error || 'Faucet request failed');
+      }
+      if (json?.hash) {
+        setTxHash(String(json.hash));
+      }
+      await refreshBalances();
+    } catch (e: any) {
+      setError(e?.message || 'Faucet failed');
+    } finally {
+      setFaucetLoading(false);
+    }
+  };
 
   const handleDeposit = async () => {
     setError(null);
@@ -277,6 +304,15 @@ export default function VaultPanel() {
             )}
           </button>
         </div>
+        {walletTokenValue <= 0 && (
+          <button
+            onClick={requestTestTokens}
+            disabled={faucetLoading || loading !== null}
+            className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-50"
+          >
+            {faucetLoading ? 'Requesting 100 SST…' : 'Get 100 SST Test Tokens (Testnet Faucet)'}
+          </button>
+        )}
       </div>
 
       <div className="h-px bg-slate-700/50 my-6" />

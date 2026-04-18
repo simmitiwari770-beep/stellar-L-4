@@ -100,22 +100,34 @@ jobs:
     name: 📦 Deploy Contracts (Testnet)
     needs: [contracts, frontend]
     runs-on: ubuntu-latest
-    # Only run real on-chain deployments when the deployer key is configured.
-    # This keeps CI green for reviewers while still supporting production deployments.
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.DEPLOYER_SECRET_KEY != ''
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
+      - name: Deploy guard (skip without secret)
+        id: deploy_guard
+        run: |
+          if [ -n "${{ secrets.DEPLOYER_SECRET_KEY }}" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "✅ DEPLOYER_SECRET_KEY present — will deploy."
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ DEPLOYER_SECRET_KEY not set — skipping deploy step."
+          fi
+
       - name: Install Stellar CLI
+        if: steps.deploy_guard.outputs.should_deploy == 'true'
         uses: stellar/stellar-cli@v26.0.0
 
       - name: Download Optimized WASMs
+        if: steps.deploy_guard.outputs.should_deploy == 'true'
         uses: actions/download-artifact@v4
         with:
           name: contract-wasms
           path: target/wasm32-unknown-unknown/release/
 
       - name: Verify downloaded WASMs
+        if: steps.deploy_guard.outputs.should_deploy == 'true'
         run: |
           echo "--- Downloaded WASM files ---"
           ls -la target/wasm32-unknown-unknown/release/
@@ -123,6 +135,7 @@ jobs:
           wc -c target/wasm32-unknown-unknown/release/*.optimized.wasm
 
       - name: Configure Identity
+        if: steps.deploy_guard.outputs.should_deploy == 'true'
         run: |
           if [ -n "$DEPLOYER_KEY" ]; then
             echo "$DEPLOYER_KEY" | stellar keys add deployer --secret-key --stdin
@@ -135,6 +148,7 @@ jobs:
           DEPLOYER_KEY: ${{ secrets.DEPLOYER_SECRET_KEY }}
 
       - name: Deploy contracts to Testnet
+        if: steps.deploy_guard.outputs.should_deploy == 'true'
         run: bash scripts/deploy.sh
         env:
           SOROBAN_NETWORK: testnet
